@@ -229,7 +229,7 @@ nonisolated enum PythonJSBridge {
             path = _determine_runtime_path(self._path, 'deno')
             return JsRuntimeInfo(
                 name='deno', path=path,
-                version='2.0.0', version_tuple=(2, 0, 0),
+                version='2.7.5', version_tuple=(2, 7, 5),
                 supported=True,
             )
 
@@ -326,11 +326,17 @@ nonisolated enum PythonJSBridge {
             text_mode = getattr(self, '_ft_text_mode', True)
             try:
                 result = builtins.eval_js(stdin_str)
+                result = str(result)
+                # yt-dlp expects the deno process to emit exactly one JSON object.
+                # Fail loudly here if JavaScriptCore produced no JSON, rather than letting
+                # json.loads() report a misleading JSONDecodeError later.
+                if not result.lstrip().startswith('{'):
+                    raise RuntimeError('JavaScriptCore EJS runtime returned non-JSON stdout: ' + result[:240])
                 self.returncode = 0
                 if text_mode:
-                    return (str(result), '')
+                    return (result, '')
                 else:
-                    return (str(result).encode('utf-8'), b'')
+                    return (result.encode('utf-8'), b'')
             except Exception as e:
                 self.returncode = 1
                 err_msg = f'freetube-jscore-shim: {e}'
