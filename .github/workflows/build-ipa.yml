@@ -1,4 +1,3 @@
-```yaml
 name: Build FreeTube iOS 27 IPA
 
 on:
@@ -210,4 +209,3 @@ jobs:
           name: FreeTube-iOS27-IPA
           path: FreeTube-iOS27.ipa
           if-no-files-found: error
-```
