@@ -1,0 +1,56 @@
+name: Build FreeTube IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: |
+          xcodebuild -version
+          xcode-select -p
+
+      - name: Resolve Swift packages
+        working-directory: FreeTube
+        run: |
+          xcodebuild \
+            -project FreeTube.xcodeproj \
+            -scheme FreeTube \
+            -resolvePackageDependencies
+
+      - name: Build unsigned app
+        working-directory: FreeTube
+        run: |
+          xcodebuild \
+            -project FreeTube.xcodeproj \
+            -scheme FreeTube \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$GITHUB_WORKSPACE/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Create IPA
+        run: |
+          mkdir -p Payload
+
+          cp -R \
+            build/Build/Products/Release-iphoneos/FreeTube.app \
+            Payload/FreeTube.app
+
+          zip -r FreeTube.ipa Payload
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeTube-IPA
+          path: FreeTube.ipa
+          if-no-files-found: error
