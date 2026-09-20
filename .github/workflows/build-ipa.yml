@@ -55,7 +55,7 @@ jobs:
               if package.get("identity", "").lower() == "lnpopupcontroller":
                   found = True
                   package["state"]["version"] = "4.5.10"
-                  package["state"]["revision"] = "0000000000000000000000000000000000000000"
+                  package["state"]["revision"] = "47bc6662473cb957133753edab27d12b62722f2d"
               elif package.get("identity", "").lower() == "lnpopupui":
                   package["state"]["version"] = "4.0.3"
                   package["state"]["revision"] = "1efe75905087c98a31f56fa2ae835a0e561afb49"
