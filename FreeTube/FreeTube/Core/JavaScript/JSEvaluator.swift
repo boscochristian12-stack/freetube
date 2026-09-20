@@ -13,6 +13,7 @@ import WebKit
 /// embedded Python runtime through a synchronous builtins.eval_js() function. WebKit work is
 /// scheduled on the main queue, while the Python worker waits on a semaphore.
 @available(iOS 17.0, *)
+// Uses WKWebView because yt-dlp's current EJS solver expects a browser-grade JS environment.
 nonisolated struct JSEvaluator {
     enum Error: Swift.Error, CustomStringConvertible {
         case scriptError(message: String)
