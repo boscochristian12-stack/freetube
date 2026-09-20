@@ -12,6 +12,7 @@ import WebKit
 /// The public API stays synchronous because PythonJSBridge exposes this evaluator to the
 /// embedded Python runtime through a synchronous builtins.eval_js() function. WebKit work is
 /// scheduled on the main queue, while the Python worker waits on a semaphore.
+/// Baseline playback restored; keep this file in the workflow path so the restored tree rebuilds.
 @available(iOS 17.0, *)
 // Uses WKWebView because yt-dlp's current EJS solver expects a browser-grade JS environment.
 nonisolated struct JSEvaluator {
