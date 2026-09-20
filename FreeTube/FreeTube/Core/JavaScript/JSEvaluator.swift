@@ -68,14 +68,33 @@ nonisolated struct JSEvaluator {
             throw Error.nullContext
         }
 
-        // Capture any exception JSC raises during evaluation. Without this hook, exceptions
-        // become silent — JSC sets `context.exception` but `evaluateScript` still returns a
-        // truthy `JSValue` (the `undefined` value) and we'd mistake failure for success.
+        // yt-dlp's EJS bundle expects a small browser/Deno-like global environment.
+        // JavaScriptCore on iOS does not provide these globals automatically.
+        context.evaluateScript(#"""
+        ;(function() {
+            var g = globalThis;
+            if (typeof g.console === "undefined") { g.console = {}; }
+            if (typeof g.location === "undefined") {
+                g.location = { hash: "", host: "www.youtube.com", hostname: "www.youtube.com",
+                    href: "https://www.youtube.com/watch?v=yt-dlp-wins", origin: "https://www.youtube.com",
+                    password: "", pathname: "/watch", port: "", protocol: "https:",
+                    search: "?v=yt-dlp-wins", username: "" };
+            }
+            if (typeof g.XMLHttpRequest === "undefined") { g.XMLHttpRequest = { prototype: {} }; }
+            if (typeof g.document === "undefined") { g.document = Object.create(null); }
+            if (typeof g.navigator === "undefined") { g.navigator = Object.create(null); }
+            if (typeof g.self === "undefined") { g.self = g; }
+            if (typeof g.window === "undefined") { g.window = g; }
+            if (typeof g.global === "undefined") { g.global = g; }
+        })();
+        """#)
+
+        // Capture JavaScript exceptions explicitly so the Python bridge never mistakes an
+        // empty/undefined result for a successful solver invocation.
         var capturedError: String?
         context.exceptionHandler = { _, exception in
             capturedError = exception?.toString() ?? "<unknown JS exception>"
         }
-
         guard let value = context.evaluateScript(code) else {
             throw Error.noResult
         }
