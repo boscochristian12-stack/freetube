@@ -20,102 +20,31 @@ jobs:
         run: |
           find . -name "*.xcodeproj" -o -name "*.xcworkspace"
 
-      - name: Remove old Swift Package resolution
+      - name: Show existing package resolution
         run: |
-          rm -rf ~/Library/Developer/Xcode/DerivedData
-          rm -rf ~/Library/Caches/org.swift.swiftpm
-          rm -rf SourcePackages
-
-      - name: Update LNPopupUI dependency
-        working-directory: FreeTube
-        run: |
-          PROJECT="FreeTube.xcodeproj/project.pbxproj"
-
-          echo "===== LNPopupUI references BEFORE ====="
-          grep -n -A12 -B4 "LNPopupUI" "$PROJECT" || true
-
-          echo ""
-          echo "===== Updating LNPopupUI package requirement ====="
-
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("FreeTube.xcodeproj/project.pbxproj")
-          text = path.read_text()
-
-          # Find the LNPopupUI package reference and replace its
-          # version requirement with an up-to-next-major requirement.
-          pattern = r'(\bXCRemoteSwiftPackageReference\b.*?repositoryURL = "https://github\.com/LeoNatan/LNPopupUI\.git";.*?requirement = \{.*?kind = )[^;]+(;.*?\};)'
-          
-          match = re.search(pattern, text, re.DOTALL)
-
-          if not match:
-              print("Could not find LNPopupUI package reference using the expected format.")
-              print("Searching for all LNPopupUI occurrences:")
-              for line in text.splitlines():
-                  if "LNPopupUI" in line:
-                      print(line)
-              raise SystemExit(1)
-
-          old_block = match.group(0)
-
-          new_block = re.sub(
-              r'kind = [^;]+;',
-              'kind = upToNextMajorVersion;',
-              old_block,
-              count=1
-          )
-
-          # Replace the version value if present.
-          new_block = re.sub(
-              r'(\bminimumVersion = )[^;]+;',
-              r'\g<1>2.5.0;',
-              new_block
-          )
-
-          text = text.replace(old_block, new_block)
-
-          path.write_text(text)
-
-          print("LNPopupUI dependency requirement updated.")
-          PY
-
-          echo ""
-          echo "===== LNPopupUI references AFTER ====="
-          grep -n -A12 -B4 "LNPopupUI" "$PROJECT" || true
-
-      - name: Resolve Swift packages and update dependencies
-        working-directory: FreeTube
-        run: |
-          xcodebuild \
-            -project FreeTube.xcodeproj \
-            -scheme FreeTube \
-            -resolvePackageDependencies \
-            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
-            -scmProvider system
-
-      - name: Verify resolved LNPopupUI version
-        run: |
-          echo "===== Package.resolved files ====="
-          find . -name "Package.resolved" -print
-
-          echo ""
-          echo "===== LNPopupUI resolved version ====="
+          echo "===== Existing Package.resolved ====="
 
           RESOLVED="FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
 
           if [ ! -f "$RESOLVED" ]; then
-            echo "ERROR: Package.resolved not found."
+            echo "ERROR: Package.resolved was not found."
             exit 1
           fi
 
+          cat "$RESOLVED"
+
+      - name: Update only LNPopupController
+        run: |
           python3 <<'PY'
           import json
+          from pathlib import Path
 
-          path = "FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+          path = Path(
+              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
+              "xcshareddata/swiftpm/Package.resolved"
+          )
 
-          with open(path, "r") as f:
+          with path.open("r") as f:
               data = json.load(f)
 
           found = False
@@ -123,32 +52,103 @@ jobs:
           for package in data.get("pins", []):
               identity = package.get("identity", "").lower()
 
-              if identity == "lnpopupui":
+              if identity == "lnpopupcontroller":
                   found = True
-                  state = package.get("state", {})
 
-                  print("LNPopupUI version:", state.get("version"))
-                  print("LNPopupUI revision:", state.get("revision"))
+                  print("===== LNPopupController BEFORE =====")
+                  print("Version:", package["state"].get("version"))
+                  print("Revision:", package["state"].get("revision"))
+
+                  # LNPopupController 4.5.8
+                  package["state"]["version"] = "4.5.8"
+                  package["state"]["revision"] = "d8f3d48"
+
+                  print("")
+                  print("===== LNPopupController AFTER =====")
+                  print("Version:", package["state"]["version"])
+                  print("Revision:", package["state"]["revision"])
 
           if not found:
-              print("ERROR: LNPopupUI was not found in Package.resolved")
+              print("ERROR: LNPopupController was not found in Package.resolved.")
               raise SystemExit(1)
+
+          with path.open("w") as f:
+              json.dump(data, f, indent=2)
+              f.write("\n")
           PY
 
-      - name: Show LNPopupController dependency
+      - name: Verify package versions
         run: |
-          echo "===== Searching LNPopupController ====="
+          python3 <<'PY'
+          import json
 
-          find SourcePackages -type f \
-            \( -name "Package.swift" -o -name "*.podspec" \) \
-            -print0 2>/dev/null |
-          while IFS= read -r -d '' file; do
-            if grep -qi "LNPopupController" "$file"; then
-              echo ""
-              echo "===== $file ====="
-              grep -i -A8 -B4 "LNPopupController" "$file" || true
-            fi
-          done
+          path = (
+              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
+              "xcshareddata/swiftpm/Package.resolved"
+          )
+
+          with open(path, "r") as f:
+              data = json.load(f)
+
+          print("===== IMPORTANT PACKAGE VERSIONS =====")
+
+          for package in data.get("pins", []):
+              identity = package.get("identity", "").lower()
+
+              if identity in ["lnpopupui", "lnpopupcontroller", "youtubedl-ios"]:
+                  state = package.get("state", {})
+
+                  print("")
+                  print(identity)
+                  print("  version :", state.get("version"))
+                  print("  revision:", state.get("revision"))
+          PY
+
+      - name: Clear only build caches
+        run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf ~/Library/Caches/org.swift.swiftpm
+          rm -rf SourcePackages
+
+      - name: Resolve packages using existing lockfile
+        working-directory: FreeTube
+        run: |
+          xcodebuild \
+            -project FreeTube.xcodeproj \
+            -scheme FreeTube \
+            -resolvePackageDependencies \
+            -disableAutomaticPackageResolution \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
+            -scmProvider system
+
+      - name: Verify resolved LNPopupController
+        run: |
+          echo "===== FINAL PACKAGE RESOLUTION ====="
+
+          python3 <<'PY'
+          import json
+
+          path = (
+              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
+              "xcshareddata/swiftpm/Package.resolved"
+          )
+
+          with open(path, "r") as f:
+              data = json.load(f)
+
+          for package in data.get("pins", []):
+              identity = package.get("identity", "").lower()
+
+              if identity in ["lnpopupui", "lnpopupcontroller"]:
+                  state = package.get("state", {})
+
+                  print(
+                      f"{identity}: "
+                      f"{state.get('version')} "
+                      f"({state.get('revision')})"
+                  )
+
+          PY
 
       - name: Build unsigned app
         working-directory: FreeTube
@@ -161,6 +161,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$GITHUB_WORKSPACE/build" \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
+            -disableAutomaticPackageResolution \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -175,11 +176,11 @@ jobs:
             exit 1
           fi
 
-          echo "===== Build successful ====="
+          echo "===== BUILD SUCCESSFUL ====="
           du -sh "$APP_PATH"
 
           echo ""
-          echo "===== Frameworks ====="
+          echo "===== FRAMEWORKS ====="
           find "$APP_PATH/Frameworks" -maxdepth 1 -type d -print || true
 
       - name: Create IPA
@@ -194,7 +195,7 @@ jobs:
           zip -qry FreeTube-iOS27.ipa Payload
 
           echo ""
-          echo "===== IPA created ====="
+          echo "===== IPA CREATED ====="
           ls -lh FreeTube-iOS27.ipa
 
       - name: Upload IPA
