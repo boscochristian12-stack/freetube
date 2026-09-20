@@ -1,0 +1,13 @@
+[package]
+name = "freetube-deno-runtime"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+deno_core = { version = "0.412.0", default-features = false, features = ["reactor-tokio"] }
+tokio = { version = "1.47.1", features = ["rt", "macros"] }
+serde_json = "1.0.145"
