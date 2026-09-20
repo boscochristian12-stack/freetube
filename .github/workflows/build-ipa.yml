@@ -163,29 +163,26 @@ jobs:
 
           echo ""
           echo "========================================"
-          echo "        BUILD ERRORS"
+          echo "        EXACT COMPILER ERRORS"
           echo "========================================"
 
-          grep -E "error:" \
-            "$GITHUB_WORKSPACE/build.log" | tail -100 || true
-
-          echo ""
-          echo "========================================"
-          echo "        ROOTVIEW ERRORS"
-          echo "========================================"
-
-          grep -n -B 5 -A 10 \
-            "RootView.swift:" \
-            "$GITHUB_WORKSPACE/build.log" | tail -150 || true
+          grep -n "error:" "$GITHUB_WORKSPACE/build.log" || true
 
           echo ""
           echo "========================================"
-          echo "        SWIFT COMPILER ERRORS"
+          echo "        ROOTVIEW.SWIFT"
           echo "========================================"
 
-          grep -n -B 3 -A 8 \
-            "SwiftCompile" \
-            "$GITHUB_WORKSPACE/build.log" | tail -150 || true
+          grep -n -B 10 -A 15 "RootView.swift" \
+            "$GITHUB_WORKSPACE/build.log" || true
+
+          echo ""
+          echo "========================================"
+          echo "        SWIFT COMPILE"
+          echo "========================================"
+
+          grep -n -B 5 -A 20 "CompileSwift normal arm64" \
+            "$GITHUB_WORKSPACE/build.log" || true
 
           echo ""
           echo "========================================"
@@ -197,6 +194,7 @@ jobs:
           exit "$BUILD_EXIT"
 
       - name: Verify built app
+        if: success()
         run: |
           APP_PATH="$GITHUB_WORKSPACE/build/Build/Products/Release-iphoneos/FreeTube.app"
 
@@ -211,11 +209,8 @@ jobs:
           echo ""
           echo "FreeTube.app successfully created."
 
-          echo ""
-          echo "App contents:"
-          ls -la "$APP_PATH"
-
       - name: Create IPA
+        if: success()
         run: |
           rm -rf "$GITHUB_WORKSPACE/Payload"
           mkdir -p "$GITHUB_WORKSPACE/Payload"
@@ -229,6 +224,7 @@ jobs:
           zip -r FreeTube.ipa Payload
 
       - name: Verify IPA
+        if: success()
         run: |
           if [ ! -f "$GITHUB_WORKSPACE/FreeTube.ipa" ]; then
             echo "ERROR: FreeTube.ipa was not created."
@@ -239,6 +235,7 @@ jobs:
           ls -lh "$GITHUB_WORKSPACE/FreeTube.ipa"
 
       - name: Upload IPA
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: FreeTube-IPA
