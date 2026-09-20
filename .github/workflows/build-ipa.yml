@@ -16,32 +16,37 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      - name: Show repository
+      - name: Find FreeTube project
         run: |
-          git log -1 --oneline
-          find FreeTube -maxdepth 3 -type f | sort | head -200
+          find . -name "*.xcodeproj" -o -name "*.xcworkspace"
 
-      # Make Swift Package Manager use the newest LNPopupUI source.
-      # This pulls the current LNPopupUI/LNPopupController code,
-      # including the iOS 27 minimization fixes.
-      - name: Update LNPopupUI for iOS 27
-        working-directory: FreeTube
+      - name: Remove old package resolution
         run: |
           rm -rf ~/Library/Developer/Xcode/DerivedData
           rm -rf ~/Library/Caches/org.swift.swiftpm
+          rm -rf SourcePackages
 
+      - name: Resolve Swift packages
+        working-directory: FreeTube
+        run: |
           xcodebuild \
             -project FreeTube.xcodeproj \
             -scheme FreeTube \
-            -resolvePackageDependencies
+            -resolvePackageDependencies \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages"
 
-      - name: Verify LNPopupUI dependency
-        working-directory: FreeTube
+      - name: Show resolved LNPopupUI version
         run: |
-          echo "Searching resolved Swift packages for LNPopupUI..."
-          find . -name Package.resolved -print -exec grep -A12 -B3 -i "lnpopup" {} \; || true
+          echo "===== Searching for LNPopupUI ====="
+          find . -name "Package.resolved" -print
 
-      - name: Build unsigned iOS app
+          echo "===== LNPopupUI entries ====="
+          grep -R -A15 -B5 \
+            '"identity" : "lnpopupui"\|"identity": "lnpopupui"\|"LNPopupUI"' \
+            --include="Package.resolved" \
+            . || true
+
+      - name: Build unsigned app
         working-directory: FreeTube
         run: |
           xcodebuild \
@@ -57,17 +62,21 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             clean build
 
-      - name: Check built app
+      - name: Verify FreeTube.app
         run: |
           APP_PATH="build/Build/Products/Release-iphoneos/FreeTube.app"
 
           if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: FreeTube.app was not created."
+            echo "ERROR: FreeTube.app was not built."
             exit 1
           fi
 
-          echo "FreeTube.app successfully built:"
+          echo "Build successful:"
           du -sh "$APP_PATH"
+
+          echo ""
+          echo "Frameworks:"
+          find "$APP_PATH/Frameworks" -maxdepth 1 -type d -print || true
 
       - name: Create IPA
         run: |
@@ -80,7 +89,7 @@ jobs:
 
           zip -qry FreeTube-iOS27.ipa Payload
 
-          echo "IPA created:"
+          echo "Created:"
           ls -lh FreeTube-iOS27.ipa
 
       - name: Upload IPA
