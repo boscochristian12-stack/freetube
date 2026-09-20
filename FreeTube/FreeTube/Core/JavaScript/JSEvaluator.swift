@@ -56,22 +56,15 @@ nonisolated struct JSEvaluator {
             let delegate = NavigationDelegate {
                 let script = wrapForStdoutCapture(code)
 
-                webView.evaluateJavaScript(
-                    script,
-                    in: nil,
-                    contentWorld: .page
-                ) { result in
-                    switch result {
-                    case .success(let value):
-                        if let string = value as? String {
-                            box.result = string
-                        } else if let value {
-                            box.result = String(describing: value)
-                        } else {
-                            box.error = Error.noResult
-                        }
-                    case .failure(let error):
+                webView.evaluateJavaScript(script) { value, error in
+                    if let error {
                         box.error = Error.scriptError(message: error.localizedDescription)
+                    } else if let string = value as? String {
+                        box.result = string
+                    } else if let value {
+                        box.result = String(describing: value)
+                    } else {
+                        box.error = Error.noResult
                     }
 
                     box.webView = nil
