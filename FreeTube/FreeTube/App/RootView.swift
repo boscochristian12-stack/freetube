@@ -63,8 +63,11 @@ struct RootView: View {
             SettingsScreen()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
                 .tag(Tab.settings)
-        }
-        .popup(
+            }
+                .background(
+                    DisablePopupTabBarAdjustment()
+            )
+                .popup(
             isBarPresented: $player.miniPlayerVisible,
             isPopupOpen: $player.fullScreenPresented
         ) {
