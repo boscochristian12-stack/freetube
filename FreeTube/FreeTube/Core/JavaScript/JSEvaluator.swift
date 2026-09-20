@@ -153,7 +153,7 @@ nonisolated struct JSEvaluator {
         func webView(
             _ webView: WKWebView,
             didFail navigation: WKNavigation!,
-            withError error: Error
+            withError error: Swift.Error
         ) {
             onFinish()
         }
@@ -161,7 +161,7 @@ nonisolated struct JSEvaluator {
         func webView(
             _ webView: WKWebView,
             didFailProvisionalNavigation navigation: WKNavigation!,
-            withError error: Error
+            withError error: Swift.Error
         ) {
             onFinish()
         }
