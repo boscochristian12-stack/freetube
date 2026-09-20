@@ -98,7 +98,36 @@ final class StreamingService {
             failures.append("web_embedded:\(Self.shortError(error))")
         }
 
-        // Tier 3: existing YouTubeKit clients.
+        // Tier 3: VISIONOS is a current no-JS-player fallback. yt-dlp currently lists it as a
+        // cookieless last-resort client that can return direct formats without signature decoding.
+        // It is especially useful when WEB Safari stops exposing its HLS manifest.
+        do {
+            let json = try await fetchPlayerJSON(
+                videoID: videoID,
+                clientName: "VISIONOS",
+                clientID: 101,
+                clientVersion: visionOSClientVersion,
+                userAgent: visionOSUserAgent,
+                embedURL: nil
+            )
+            if let direct = await verifiedProgressive(
+                from: json,
+                maxHeight: quality.heightCap ?? Int.max,
+                userAgent: visionOSUserAgent
+            ) {
+                log.info("tier3 visionOS progressive verified for \(videoID, privacy: .public)")
+                return .direct(direct)
+            }
+            if let hls = await verifiedHLS(from: json, userAgent: visionOSUserAgent) {
+                log.info("tier3 visionOS HLS verified for \(videoID, privacy: .public)")
+                return .hls(hls, userAgent: visionOSUserAgent)
+            }
+            failures.append("visionOS:no-playable-format")
+        } catch {
+            failures.append("visionOS:\(Self.shortError(error))")
+        }
+
+        // Tier 4: existing YouTubeKit clients.
         let service = VideoService()
         do {
             let info = try await service.fetchInfo(id: videoID)
@@ -345,12 +374,13 @@ final class StreamingService {
         request.timeoutInterval = 8
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Referer")
+        request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Origin")
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse,
                   (200..<300).contains(http.statusCode),
-                  let text = String(data: data.prefix(64_000), encoding: .utf8)
+                  let text = String(data: Data(data.prefix(64_000)), encoding: .utf8)
             else { return false }
             return text.contains("#EXTM3U")
         } catch {
