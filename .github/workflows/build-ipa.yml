@@ -31,7 +31,7 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/SourcePackages"
           rm -rf "$GITHUB_WORKSPACE/build"
 
-      - name: Pin LNPopupController to 4.5.8
+      - name: Pin LNPopupController to 4.5.10 and LNPopupUI to 4.0.3
         run: |
           python3 <<'PY'
           import json
@@ -54,8 +54,11 @@ jobs:
           for package in data.get("pins", []):
               if package.get("identity", "").lower() == "lnpopupcontroller":
                   found = True
-                  package["state"]["version"] = "4.5.8"
-                  package["state"]["revision"] = "d8f3d48"
+                  package["state"]["version"] = "4.5.10"
+                  package["state"]["revision"] = "0000000000000000000000000000000000000000"
+              elif package.get("identity", "").lower() == "lnpopupui":
+                  package["state"]["version"] = "4.0.3"
+                  package["state"]["revision"] = "1efe75905087c98a31f56fa2ae835a0e561afb49"
 
           if not found:
               print("ERROR: LNPopupController was not found.")
@@ -65,7 +68,7 @@ jobs:
               json.dump(data, f, indent=2)
               f.write("\n")
 
-          print("LNPopupController pinned to 4.5.8")
+          print("LNPopupController pinned to 4.5.10 and LNPopupUI pinned to 4.0.3")
           PY
 
       - name: Resolve Swift packages
@@ -131,8 +134,8 @@ jobs:
                   print(f"LNPopupController version: {version}")
                   print(f"LNPopupController revision: {revision}")
 
-                  if version != "4.5.8":
-                      print("ERROR: LNPopupController is not 4.5.8")
+                  if version != "4.5.10":
+                      print("ERROR: LNPopupController is not 4.5.10")
                       raise SystemExit(1)
 
                   raise SystemExit(0)
