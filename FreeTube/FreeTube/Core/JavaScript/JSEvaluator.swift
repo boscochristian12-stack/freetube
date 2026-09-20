@@ -121,12 +121,17 @@ nonisolated struct JSEvaluator {
         context.exceptionHandler = { _, exception in
             capturedError = exception?.toString() ?? "<unknown JS exception>"
         }
-        guard let value = context.evaluateScript(code) else {
-            throw Error.noResult
-        }
+        let value = context.evaluateScript(code)
 
+        // Check the exception before inspecting the return value. JavaScriptCore may return
+        // nil for a script that threw, and the exception message is much more useful than
+        // reporting the misleading "no result" error.
         if let err = capturedError {
             throw Error.scriptError(message: err)
+        }
+
+        guard let value else {
+            throw Error.noResult
         }
 
         // `toString()` coerces any JSValue (numbers, booleans, objects via valueOf/toString) to
