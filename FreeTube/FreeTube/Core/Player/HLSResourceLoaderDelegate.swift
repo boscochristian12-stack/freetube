@@ -95,6 +95,8 @@ final class HLSResourceLoaderDelegate: NSObject, AVAssetResourceLoaderDelegate {
     private func handle(loadingRequest: AVAssetResourceLoadingRequest, realURL: URL) async {
         var request = URLRequest(url: realURL)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Referer")
+        request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Origin")
         log.debug("→ GET \(realURL.absoluteString, privacy: .public)")
 
         // Honor any byte-range the player asked for. AVPlayer issues ranged GETs for media segments;
