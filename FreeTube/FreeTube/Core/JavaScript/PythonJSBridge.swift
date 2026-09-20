@@ -107,17 +107,21 @@ nonisolated enum PythonJSBridge {
         return """
         ;(function() {
             var __ftStdout = [];
-            var console = {
+            var __ftConsole = {
                 log: function() {
                     var parts = Array.prototype.map.call(arguments, function(a) { return String(a); });
                     __ftStdout.push(parts.join(' '));
                 },
                 error: function() {}, warn: function() {}, info: function() {}, debug: function() {}
             };
+            // Capture both lexical console references and globalThis.console references.
+            globalThis.console = __ftConsole;
+            var console = __ftConsole;
         \(userCode)
             return __ftStdout.join('\\n');
         })()
         """
+    }
     }
 
     // MARK: - 2. yt_dlp_ejs package shim
