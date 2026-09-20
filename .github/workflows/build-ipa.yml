@@ -2,6 +2,10 @@ name: Build FreeTube IPA
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'FreeTube/FreeTube/Core/JavaScript/JSEvaluator.swift'
+      - 'FreeTube/FreeTube/Core/JavaScript/PythonJSBridge.swift'
 
 jobs:
   build:
