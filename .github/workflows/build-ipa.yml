@@ -55,7 +55,6 @@ jobs:
                   print("Version:", package["state"].get("version"))
                   print("Revision:", package["state"].get("revision"))
 
-                  # LNPopupController 4.5.8
                   package["state"]["version"] = "4.5.8"
                   package["state"]["revision"] = "d8f3d48"
 
@@ -159,6 +158,8 @@ jobs:
       - name: Build unsigned app
         working-directory: FreeTube
         run: |
+          set +e
+
           xcodebuild \
             -project FreeTube.xcodeproj \
             -scheme FreeTube \
@@ -170,7 +171,20 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            clean build
+            clean build 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+          BUILD_EXIT=${PIPESTATUS[0]}
+
+          echo ""
+          echo "===== BUILD ERRORS ====="
+          grep -E "error:|warning:|RootView.swift" \
+            "$GITHUB_WORKSPACE/build.log" | tail -100 || true
+
+          echo ""
+          echo "===== BUILD EXIT CODE ====="
+          echo "$BUILD_EXIT"
+
+          exit "$BUILD_EXIT"
 
       - name: Verify FreeTube.app
         run: |
