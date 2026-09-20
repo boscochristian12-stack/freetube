@@ -64,9 +64,6 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
                 .tag(Tab.settings)
             }
-                .background(
-                    DisablePopupTabBarAdjustment()
-            )
                 .popup(
             isBarPresented: $player.miniPlayerVisible,
             isPopupOpen: $player.fullScreenPresented
@@ -88,9 +85,7 @@ struct RootView: View {
         .popupInteractionStyle(UIViewController.PopupInteractionStyle.drag)
         .popupCloseButtonStyle(LNPopupCloseButton.Style.none)
         .popupBarStyle(LNPopupBar.Style.prominent)
-        .popupBarCustomizer { popupBar in
-    popupBar.inheritsBottomBarMetrics = false
-}
+        .popupBarInheritsBottomBarMetrics(false)
         // Explicitly enable the thin progress line at the bottom of the popup bar so playback
         // and download progress are always visible without expanding the player.
         .popupBarProgressViewStyle(.bottom)
