@@ -20,20 +20,7 @@ jobs:
         run: |
           find . -name "*.xcodeproj" -o -name "*.xcworkspace"
 
-      - name: Show existing package resolution
-        run: |
-          echo "===== Existing Package.resolved ====="
-
-          RESOLVED="FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
-
-          if [ ! -f "$RESOLVED" ]; then
-            echo "ERROR: Package.resolved was not found."
-            exit 1
-          fi
-
-          cat "$RESOLVED"
-
-      - name: Update only LNPopupController
+      - name: Update LNPopupController in Package.resolved
         run: |
           python3 <<'PY'
           import json
@@ -44,15 +31,17 @@ jobs:
               "xcshareddata/swiftpm/Package.resolved"
           )
 
+          if not path.exists():
+              print("ERROR: Package.resolved not found.")
+              raise SystemExit(1)
+
           with path.open("r") as f:
               data = json.load(f)
 
           found = False
 
           for package in data.get("pins", []):
-              identity = package.get("identity", "").lower()
-
-              if identity == "lnpopupcontroller":
+              if package.get("identity", "").lower() == "lnpopupcontroller":
                   found = True
 
                   print("===== LNPopupController BEFORE =====")
@@ -69,7 +58,7 @@ jobs:
                   print("Revision:", package["state"]["revision"])
 
           if not found:
-              print("ERROR: LNPopupController was not found in Package.resolved.")
+              print("ERROR: LNPopupController was not found.")
               raise SystemExit(1)
 
           with path.open("w") as f:
@@ -77,51 +66,23 @@ jobs:
               f.write("\n")
           PY
 
-      - name: Verify package versions
-        run: |
-          python3 <<'PY'
-          import json
-
-          path = (
-              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
-              "xcshareddata/swiftpm/Package.resolved"
-          )
-
-          with open(path, "r") as f:
-              data = json.load(f)
-
-          print("===== IMPORTANT PACKAGE VERSIONS =====")
-
-          for package in data.get("pins", []):
-              identity = package.get("identity", "").lower()
-
-              if identity in ["lnpopupui", "lnpopupcontroller", "youtubedl-ios"]:
-                  state = package.get("state", {})
-
-                  print("")
-                  print(identity)
-                  print("  version :", state.get("version"))
-                  print("  revision:", state.get("revision"))
-          PY
-
-      - name: Clear only build caches
+      - name: Clear build caches
         run: |
           rm -rf ~/Library/Developer/Xcode/DerivedData
           rm -rf ~/Library/Caches/org.swift.swiftpm
           rm -rf SourcePackages
 
-      - name: Resolve packages using existing lockfile
+      - name: Resolve Swift packages
         working-directory: FreeTube
         run: |
           xcodebuild \
             -project FreeTube.xcodeproj \
             -scheme FreeTube \
             -resolvePackageDependencies \
-            -disableAutomaticPackageResolution \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
             -scmProvider system
 
-      - name: Verify resolved LNPopupController
+      - name: Show final package versions
         run: |
           echo "===== FINAL PACKAGE RESOLUTION ====="
 
@@ -136,18 +97,56 @@ jobs:
           with open(path, "r") as f:
               data = json.load(f)
 
+          important = {
+              "lnpopupui",
+              "lnpopupcontroller",
+              "lnsystemmarqueelabel",
+              "youtubedl-ios"
+          }
+
           for package in data.get("pins", []):
               identity = package.get("identity", "").lower()
 
-              if identity in ["lnpopupui", "lnpopupcontroller"]:
+              if identity in important:
                   state = package.get("state", {})
 
-                  print(
-                      f"{identity}: "
-                      f"{state.get('version')} "
-                      f"({state.get('revision')})"
-                  )
+                  print("")
+                  print(identity)
+                  print("  version :", state.get("version"))
+                  print("  revision:", state.get("revision"))
+          PY
 
+      - name: Verify LNPopupController
+        run: |
+          python3 <<'PY'
+          import json
+
+          path = (
+              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
+              "xcshareddata/swiftpm/Package.resolved"
+          )
+
+          with open(path, "r") as f:
+              data = json.load(f)
+
+          found = False
+
+          for package in data.get("pins", []):
+              if package.get("identity", "").lower() == "lnpopupcontroller":
+                  found = True
+                  version = package["state"].get("version")
+
+                  print("LNPopupController:", version)
+
+                  if version != "4.5.8":
+                      print("ERROR: LNPopupController is not 4.5.8")
+                      raise SystemExit(1)
+
+          if not found:
+              print("ERROR: LNPopupController was not found.")
+              raise SystemExit(1)
+
+          print("LNPopupController 4.5.8 confirmed.")
           PY
 
       - name: Build unsigned app
@@ -161,7 +160,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$GITHUB_WORKSPACE/build" \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
-            -disableAutomaticPackageResolution \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
