@@ -2,15 +2,17 @@ import Foundation
 
 enum PlaybackSource: Sendable, Hashable {
     case direct(URL)
+    /// HLS master/variant playlist. The Safari user-agent is retained with the source so AVPlayer's
+    /// segment requests can be routed through HLSResourceLoaderDelegate with the same fingerprint.
+    case hls(URL, userAgent: String)
     case localFile(URL)
-    /// Separate video-only + audio-only streams that the player must stitch together via
-    /// `AVMutableComposition`. This is how YouTube delivers most non-music VOD on the iOS-client
-    /// endpoint — combined "progressive" formats and HLS manifests are reserved for a small subset.
+    /// Separate video-only + audio-only streams that a downloader can stitch together.
     case composite(video: URL, audio: URL)
 
     var url: URL {
         switch self {
         case .direct(let url): return url
+        case .hls(let url, _): return url
         case .localFile(let url): return url
         case .composite(let video, _): return video
         }

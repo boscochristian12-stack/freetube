@@ -64,6 +64,8 @@ nonisolated final class YouTubeKitClient: @unchecked Sendable {
     /// directly (services without a YouTubeKit import — e.g. our raw-HTTP fallbacks — can
     /// still inject the auth header).
     var cookies: String { model.cookies }
+    /// Current visitor-data token for native Innertube providers.
+    var visitorData: String { model.visitorData }
 
     /// Drops the cached visitor token so the next request fetches a fresh one. Called by
     /// `SessionManager` after clearing cookies — the visitor token YouTube issued may have been

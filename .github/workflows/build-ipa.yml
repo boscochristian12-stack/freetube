@@ -6,6 +6,11 @@ on:
     paths:
       - 'FreeTube/FreeTube/Core/JavaScript/JSEvaluator.swift'
       - 'FreeTube/FreeTube/Core/JavaScript/PythonJSBridge.swift'
+      - 'FreeTube/FreeTube/Core/Models/PlaybackSource.swift'
+      - 'FreeTube/FreeTube/Core/Player/PlaybackResolver.swift'
+      - 'FreeTube/FreeTube/Core/Player/PlayerStateManager.swift'
+      - 'FreeTube/FreeTube/Core/Download/DownloadManager.swift'
+      - 'FreeTube/FreeTube/Core/Networking/YouTubeKitClient.swift'
 
 jobs:
   build:

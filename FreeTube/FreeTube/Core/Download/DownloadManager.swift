@@ -463,6 +463,48 @@ final class DownloadManager: TemporaryDownloading {
         // dispatches the merger ffmpeg subprocess we never see Python return. Doing the mux ourselves
         // via AVAssetExportSession is the robust path. We still keep a single-file fallback
         // (`best[ext=mp4]/best`) for the rare case where YouTube serves a combined progressive file.
+        // Try the native streaming pipeline before Python/yt-dlp. This keeps YouTube Downloads
+        // functional without relying on the currently broken fake-Deno EJS path.
+        do {
+            phaseByVideoID[video.id] = "stream"
+            publish(snapshot: DownloadTaskSnapshot(
+                id: snapshotID,
+                videoID: video.id,
+                title: video.title,
+                state: .downloading(progress: nil),
+                createdAt: .now
+            ))
+            try await StreamingService.shared.downloadToFile(
+                videoID: video.id,
+                quality: quality,
+                destination: destination
+            )
+            guard FileManager.default.fileExists(atPath: destination.path) else {
+                throw StreamingError.downloadFailed("native provider returned without a file")
+            }
+
+            let nativeElapsed = Date().timeIntervalSince(startedAt)
+            log.info("yt-dlp[\(video.id, privacy: .public)] native stream download SUCCESS in \(String(format: "%.1f", nativeElapsed), privacy: .public)s")
+            await persistDownloaded(video: video, fileURL: destination)
+            publish(snapshot: DownloadTaskSnapshot(
+                id: snapshotID,
+                videoID: video.id,
+                title: video.title,
+                state: .completed(destination),
+                createdAt: .now
+            ))
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                self.tasks[snapshotID] = nil
+                self.publishSnapshots()
+            }
+            return destination
+        } catch {
+            log.notice("yt-dlp[\(video.id, privacy: .public)] native stream download failed: \(String(describing: error), privacy: .public) — falling back to yt-dlp")
+            try? FileManager.default.removeItem(at: destination)
+            progressByVideoID.removeValue(forKey: video.id)
+        }
+
         let formatString = Self.formatString(for: quality)
         log.debug("yt-dlp[\(video.id, privacy: .public)] format selector=\(formatString, privacy: .public)")
         // Output template includes `%(format_id)s` so individual streams land at predictable paths
@@ -711,7 +753,7 @@ final class DownloadManager: TemporaryDownloading {
                     id: snapshotID,
                     videoID: video.id,
                     title: video.title,
-                    state: .failed("Download finished but file not found"),
+                    state: .failed("No playable media file was produced after the available download fallbacks."),
                     createdAt: .now
                 ))
                 throw YouTubeServiceError.streamExtractionFailed

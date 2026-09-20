@@ -72,6 +72,8 @@ final class PlayerStateManager {
     private var itemErrorLogObservation: NSObjectProtocol?
     private var playerErrorObservation: NSKeyValueObservation?
     private var defaultRateObservation: NSKeyValueObservation?
+    /// Retained while an HLS AVAsset is active so manifest and segment requests share one UA.
+    private var activeHLSLoader: HLSResourceLoaderDelegate?
     init(
         queue: QueueManager = QueueManager(),
         resolver: any PlaybackResolving = PlaybackResolver(),
@@ -159,8 +161,7 @@ final class PlayerStateManager {
         duration = 0
         refreshArtwork(for: synthetic)
 
-        let item = AVPlayerItem(url: fileURL)
-        loadItem(item)
+        loadPlaybackSource(.localFile(fileURL))
         loadState = .readyToPlay
         updateNowPlaying()
         play()
@@ -371,72 +372,49 @@ final class PlayerStateManager {
 
     private func resolveAndPlay(video: Video, autoplay: Bool, skipRecommendations: Bool = false) async {
         log.info("resolveAndPlay: start for \(video.id, privacy: .public)")
-        // Watch the manager's progress dictionary so the player UI can render a real-time progress
-        // bar. Cancelled in `dismiss()` and replaced on each `load`.
         startProgressObservation(for: video.id)
 
-        // Three-tier playback resolution:
-        //   1. `ensureDownloaded` — yt-dlp into local file, then YouTubeKit progressive fallback
-        //      inside it. Returns a `file://` URL on success.
-        //   2. **HLS streaming** — last resort when every download path is blocked (PoT 403s,
-        //      cipher-decode broken, etc.). `AVPlayerItem(url:)` accepts an HLS master-playlist
-        //      URL identically to a file URL — AVFoundation handles segment fetching itself, so
-        //      we get playback without needing to predownload or decode signature ciphers. The
-        //      trade-off is no local file ⇒ the video isn't watchable offline, doesn't appear in
-        //      Downloads, and doesn't burn cache storage. But it plays.
-        let playbackURL: URL
         do {
-            loadState = .downloading(progress: 0, phase: nil)
-            // `.userInitiated` priority — the user just tapped Play and is actively waiting.
-            // If a long background queue (playlist Download All) is in flight, this jumps the
-            // line so playback starts as soon as the currently-running yt-dlp finishes, instead
-            // of after every queued download.
-            playbackURL = try await DownloadManager.shared.ensureDownloaded(
-                video: video,
-                quality: preferences.preferredQuality,
-                priority: .userInitiated
+            // Native streaming is the normal path. Keep the UI in "Preparing…" while we ask
+            // the provider pyramid for a verified playable source.
+            loadState = .resolving
+            let source = try await resolver.resolve(
+                videoID: video.id,
+                quality: preferences.preferredQuality
             )
-            log.info("resolveAndPlay: local file \(playbackURL.path, privacy: .public)")
+            log.info("resolveAndPlay: native source resolved kind=\(Self.sourceKind(source), privacy: .public)")
+            loadPlaybackSource(source)
+            loadState = .readyToPlay
+            updateNowPlaying()
+            if autoplay { play() }
+            stopProgressObservation()
+            log.info("resolveAndPlay: native streaming success for \(video.id, privacy: .public)")
         } catch {
-            log.error("resolveAndPlay: download path FAILED for \(video.id, privacy: .public): \(String(describing: error), privacy: .public) — trying remote stream")
-            if let streamURL = await resolveStreamingURL(videoID: video.id, quality: preferences.preferredQuality) {
-                log.info("resolveAndPlay: streaming \(streamURL.absoluteString, privacy: .public)")
-                playbackURL = streamURL
-            } else {
-                log.error("resolveAndPlay: streaming fallback also unavailable for \(video.id, privacy: .public)")
-                loadState = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+            // Only now do we show "Downloading": the streaming providers have all failed and
+            // we're deliberately falling back to a local copy.
+            log.notice("resolveAndPlay: native streaming failed for \(video.id, privacy: .public): \(String(describing: error), privacy: .public) — entering local-file fallback")
+            loadState = .downloading(progress: 0, phase: "stream")
+            do {
+                let localURL = try await DownloadManager.shared.ensureDownloaded(
+                    video: video,
+                    quality: preferences.preferredQuality,
+                    priority: .userInitiated
+                )
+                loadPlaybackSource(.localFile(localURL))
+                loadState = .readyToPlay
+                updateNowPlaying()
+                if autoplay { play() }
+                stopProgressObservation()
+                log.info("resolveAndPlay: local fallback success for \(video.id, privacy: .public)")
+            } catch {
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                log.error("resolveAndPlay: all playback tiers failed for \(video.id, privacy: .public): \(message, privacy: .public)")
+                loadState = .failed(message)
                 stopProgressObservation()
                 return
             }
         }
-        let item = AVPlayerItem(url: playbackURL)
-        loadItem(item)
-        loadState = .readyToPlay
-        updateNowPlaying()
-        if autoplay { play() }
-        stopProgressObservation()
-        log.info("resolveAndPlay: finished happy-path for \(video.id, privacy: .public)")
-        // Fire-and-forget queue fill — uses YouTube's `/next` (WEB) endpoint, independent of the
-        // resolver's `/player` (IOS) endpoint, so it can't interfere with playback that's already
-        // running. Failures are logged but never surface to the user; queue stays as-is on error.
-        //
-        // Suppressed only when the caller explicitly asks (playlist's Play all / Shuffle all).
-        // Every other entry point — single video taps from Home/Search/Mini-player, queue-row
-        // taps, Next/Previous, and even tapping an individual playlist video — gets the
-        // autoplay-style recommendation fill, so the player keeps advancing past the seed.
-        // Background-prefetch the **single** next queue item so it's ready when the user taps Next
-        // (or auto-advance kicks in). We deliberately only preload one — `PythonRunner` serializes
-        // every yt-dlp invocation and we don't want a long preload chain blocking the user's
-        // explicit play taps. The current item is already fully on disk and playing from local
-        // file at this point, so kicking off the next download doesn't interrupt anything.
-        //
-        // **Ordering matters.** For non-playlist taps, the queue starts with just `[currentVideo]`
-        // — recommendations haven't arrived yet. If we fire prefetch here unconditionally,
-        // `queue.upcomingItems(count: 1)` returns empty and the prefetch silently no-ops. So:
-        //   - Playlist Play All / Shuffle All path (`skipRecommendations: true`): the caller has
-        //     pre-populated the queue, so prefetch can run immediately.
-        //   - Default path (recommendations enabled): defer prefetch to the tail of the
-        //     recommendations Task so it sees the freshly-appended "up next".
+
         if !skipRecommendations {
             Task { [weak self] in
                 await self?.fillQueueWithRecommendations(for: video)
@@ -445,6 +423,57 @@ final class PlayerStateManager {
         } else {
             prefetchNextUpcoming()
         }
+    }
+
+    private static func sourceKind(_ source: PlaybackSource) -> String {
+        switch source {
+        case .direct: return "direct"
+        case .hls: return "hls"
+        case .localFile: return "local"
+        case .composite: return "composite"
+        }
+    }
+
+    /// Builds an AVPlayerItem for every source type. HLS uses the existing resource-loader delegate
+    /// so the manifest and media segments see the same Safari fingerprint.
+    private func loadPlaybackSource(_ source: PlaybackSource) {
+        activeHLSLoader = nil
+
+        let item: AVPlayerItem
+        switch source {
+        case .localFile(let url):
+            item = AVPlayerItem(url: url)
+
+        case .direct(let url):
+            let asset = AVURLAsset(
+                url: url,
+                options: [
+                    AVURLAssetHTTPHeaderFieldsKey: [
+                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)",
+                        "Referer": "https://www.youtube.com/"
+                    ]
+                ]
+            )
+            item = AVPlayerItem(asset: asset)
+
+        case .hls(let url, let userAgent):
+            guard let rewritten = HLSResourceLoaderDelegate.rewrite(url) else {
+                log.error("loadPlaybackSource: couldn't rewrite HLS URL")
+                item = AVPlayerItem(url: url)
+                break
+            }
+            let loader = HLSResourceLoaderDelegate(userAgent: userAgent)
+            activeHLSLoader = loader
+            let asset = AVURLAsset(url: rewritten)
+            asset.resourceLoader.setDelegate(loader, queue: .main)
+            item = AVPlayerItem(asset: asset)
+
+        case .composite(let videoURL, _):
+            // Kept for compatibility. Native providers don't select composite playback.
+            item = AVPlayerItem(url: videoURL)
+        }
+
+        loadItem(item)
     }
 
     /// Fires `DownloadManager.ensureDownloaded` for just the next queued video, in the background.
