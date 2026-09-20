@@ -106,7 +106,7 @@ nonisolated enum PythonJSBridge {
     private static func wrapForStdoutCapture(_ userCode: String) -> String {
         return """
         ;(function() {
-            var __ftStdout = ["__FT_EJS_START__"];
+            var __ftStdout = [];
             var __ftConsole = {
                 log: function() {
                     var parts = Array.prototype.map.call(arguments, function(a) { return String(a); });
