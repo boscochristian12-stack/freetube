@@ -232,7 +232,10 @@ final class StreamingService {
         request.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
 
         let client = YouTubeKitClient.shared
-        if !client.cookies.isEmpty {
+        // VISIONOS is intentionally cookieless. Sending account cookies to this client can change
+        // the response into a more restricted/DRM-backed path, defeating the reason it exists as
+        // a last-resort fallback.
+        if clientName != "VISIONOS", !client.cookies.isEmpty {
             request.setValue(client.cookies, forHTTPHeaderField: "Cookie")
         }
         if !client.visitorData.isEmpty {
