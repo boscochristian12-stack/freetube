@@ -122,7 +122,6 @@ nonisolated enum PythonJSBridge {
         })()
         """
     }
-    }
 
     // MARK: - 2. yt_dlp_ejs package shim
 
