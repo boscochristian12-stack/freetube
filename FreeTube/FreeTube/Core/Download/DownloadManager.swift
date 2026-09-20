@@ -951,10 +951,13 @@ final class DownloadManager: TemporaryDownloading {
     private func downloadStream(from url: URL, to destination: URL, videoID: String, snapshotID: String, title: String) async throws {
         try? FileManager.default.removeItem(at: destination)
         var request = URLRequest(url: url)
-        // Match the TVHTML5_SIMPLY_EMBEDDED_PLAYER user-agent we set on `tvHtmlModel`.
-        // The CDN occasionally rejects requests whose UA doesn't match the client that minted
-        // the URL.
-        request.setValue("Mozilla/5.0 (PlayStation; PlayStation 4/12.55) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+        // YouTubeKit's normal player/download-format request uses this Safari UA. The fallback
+        // can come from the normal iOS model (fetchInfoWithFormats) as well as TVHTML5, so
+        // using the PS4 UA here can make a valid googlevideo URL return HTTP 403 because the
+        // CDN sees a different client fingerprint.
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+        request.setValue("https://www.youtube.com/", forHTTPHeaderField: "Referer")
+        request.setValue("https://www.youtube.com", forHTTPHeaderField: "Origin")
 
         let (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
         guard let http = response as? HTTPURLResponse else {
