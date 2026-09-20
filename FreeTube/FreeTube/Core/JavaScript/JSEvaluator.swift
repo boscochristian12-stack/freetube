@@ -83,7 +83,7 @@ nonisolated struct JSEvaluator {
             box.delegate = delegate
             webView.navigationDelegate = delegate
             webView.loadHTMLString(
-                "<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>",
+                "<!doctype html><html><head><meta charset=\"utf-8\"></head><body></body></html>",
                 baseURL: URL(string: "https://www.youtube.com/")
             )
         }
