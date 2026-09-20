@@ -445,15 +445,17 @@ final class PlayerStateManager {
             item = AVPlayerItem(url: url)
 
         case .direct(let url):
-            let asset = AVURLAsset(
-                url: url,
-                options: [
-                    AVURLAssetHTTPHeaderFieldsKey: [
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)",
-                        "Referer": "https://www.youtube.com/"
-                    ]
-                ]
-            )
+            // Route direct media through the same resource-loader path as HLS so the actual
+            // AVPlayer request receives the Safari fingerprint we used during URL validation.
+            guard let rewritten = HLSResourceLoaderDelegate.rewrite(url) else {
+                log.error("loadPlaybackSource: couldn't rewrite direct URL")
+                item = AVPlayerItem(url: url)
+                break
+            }
+            let loader = HLSResourceLoaderDelegate(userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Safari/605.1.15,gzip(gfe)")
+            activeHLSLoader = loader
+            let asset = AVURLAsset(url: rewritten)
+            asset.resourceLoader.setDelegate(loader, queue: .main)
             item = AVPlayerItem(asset: asset)
 
         case .hls(let url, let userAgent):
