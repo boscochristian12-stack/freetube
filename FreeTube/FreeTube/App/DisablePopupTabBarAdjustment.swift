@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import LNPopupController_ObjC
 
 /// Disables LNPopupController's iOS 27 UITabBar layout adjustment.
 ///
@@ -29,13 +30,6 @@ struct DisablePopupTabBarAdjustment: UIViewControllerRepresentable {
 
         override func viewDidAppear(_ animated: Bool) {
             super.viewDidAppear(animated)
-            disableAdjustment()
-        }
-
-        override func viewDidMove(
-            toParent parent: UIViewController?
-        ) {
-            super.viewDidMove(toParent: parent)
             disableAdjustment()
         }
 
