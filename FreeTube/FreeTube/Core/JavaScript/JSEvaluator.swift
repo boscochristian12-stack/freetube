@@ -83,6 +83,32 @@ nonisolated struct JSEvaluator {
             if (typeof g.XMLHttpRequest === "undefined") { g.XMLHttpRequest = { prototype: {} }; }
             if (typeof g.document === "undefined") { g.document = Object.create(null); }
             if (typeof g.navigator === "undefined") { g.navigator = Object.create(null); }
+            if (typeof g.atob === "undefined") {
+                g.atob = function(s) { return s; };
+            }
+            if (typeof g.btoa === "undefined") {
+                g.btoa = function(s) { return s; };
+            }
+            if (typeof g.TextEncoder === "undefined") {
+                g.TextEncoder = function() {};
+                g.TextEncoder.prototype.encode = function(s) {
+                    var out = [];
+                    for (var i = 0; i < String(s).length; i++) out.push(String(s).charCodeAt(i) & 255);
+                    return new Uint8Array(out);
+                };
+            }
+            if (typeof g.TextDecoder === "undefined") {
+                g.TextDecoder = function() {};
+                g.TextDecoder.prototype.decode = function(v) {
+                    if (typeof v === "string") return v;
+                    var out = "";
+                    for (var i = 0; i < v.length; i++) out += String.fromCharCode(v[i]);
+                    return out;
+                };
+            }
+            if (typeof g.performance === "undefined") {
+                g.performance = { now: function() { return Date.now(); } };
+            }
             if (typeof g.self === "undefined") { g.self = g; }
             if (typeof g.window === "undefined") { g.window = g; }
             if (typeof g.global === "undefined") { g.global = g; }
