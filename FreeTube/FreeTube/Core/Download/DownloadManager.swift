@@ -471,7 +471,7 @@ final class DownloadManager: TemporaryDownloading {
                 id: snapshotID,
                 videoID: video.id,
                 title: video.title,
-                state: .downloading(progress: nil),
+                state: .downloading(progress: 0, phase: "stream"),
                 createdAt: .now
             ))
             try await StreamingService.shared.downloadToFile(
