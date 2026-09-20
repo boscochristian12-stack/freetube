@@ -1,4 +1,4 @@
-name: Build FreeTube IPA
+name: Build FreeTube iOS 27 IPA
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout FreeTube
         uses: actions/checkout@v4
 
       - name: Show Xcode version
@@ -16,15 +16,32 @@ jobs:
           xcodebuild -version
           xcode-select -p
 
-      - name: Resolve Swift packages
+      - name: Show repository
+        run: |
+          git log -1 --oneline
+          find FreeTube -maxdepth 3 -type f | sort | head -200
+
+      # Make Swift Package Manager use the newest LNPopupUI source.
+      # This pulls the current LNPopupUI/LNPopupController code,
+      # including the iOS 27 minimization fixes.
+      - name: Update LNPopupUI for iOS 27
         working-directory: FreeTube
         run: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData
+          rm -rf ~/Library/Caches/org.swift.swiftpm
+
           xcodebuild \
             -project FreeTube.xcodeproj \
             -scheme FreeTube \
             -resolvePackageDependencies
 
-      - name: Build unsigned app
+      - name: Verify LNPopupUI dependency
+        working-directory: FreeTube
+        run: |
+          echo "Searching resolved Swift packages for LNPopupUI..."
+          find . -name Package.resolved -print -exec grep -A12 -B3 -i "lnpopup" {} \; || true
+
+      - name: Build unsigned iOS app
         working-directory: FreeTube
         run: |
           xcodebuild \
@@ -34,23 +51,41 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$GITHUB_WORKSPACE/build" \
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Check built app
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/FreeTube.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: FreeTube.app was not created."
+            exit 1
+          fi
+
+          echo "FreeTube.app successfully built:"
+          du -sh "$APP_PATH"
 
       - name: Create IPA
         run: |
+          rm -rf Payload
           mkdir -p Payload
 
           cp -R \
-            build/Build/Products/Release-iphoneos/FreeTube.app \
-            Payload/FreeTube.app
+            "build/Build/Products/Release-iphoneos/FreeTube.app" \
+            "Payload/FreeTube.app"
 
-          zip -r FreeTube.ipa Payload
+          zip -qry FreeTube-iOS27.ipa Payload
+
+          echo "IPA created:"
+          ls -lh FreeTube-iOS27.ipa
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: FreeTube-IPA
-          path: FreeTube.ipa
+          name: FreeTube-iOS27-IPA
+          path: FreeTube-iOS27.ipa
           if-no-files-found: error
