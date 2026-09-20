@@ -1,4 +1,4 @@
-name: Build FreeTube iOS 27 IPA
+name: Build FreeTube IPA
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout FreeTube
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Show Xcode version
@@ -23,11 +23,15 @@ jobs:
             -E '\.popup\(|popupBarInheritsBottomBarMetrics|tabBarMinimizeBehavior' \
             FreeTube || true
 
-      - name: Find project
+      - name: Clear Swift Package Manager caches
         run: |
-          find . -name "*.xcodeproj" -o -name "*.xcworkspace"
+          rm -rf ~/Library/Developer/Xcode/DerivedData/*
+          rm -rf ~/Library/Caches/org.swift.swiftpm
+          rm -rf ~/Library/org.swift.swiftpm
+          rm -rf "$GITHUB_WORKSPACE/SourcePackages"
+          rm -rf "$GITHUB_WORKSPACE/build"
 
-      - name: Update LNPopupController in Package.resolved
+      - name: Pin LNPopupController to 4.5.8
         run: |
           python3 <<'PY'
           import json
@@ -50,18 +54,8 @@ jobs:
           for package in data.get("pins", []):
               if package.get("identity", "").lower() == "lnpopupcontroller":
                   found = True
-
-                  print("===== LNPopupController BEFORE =====")
-                  print("Version:", package["state"].get("version"))
-                  print("Revision:", package["state"].get("revision"))
-
                   package["state"]["version"] = "4.5.8"
                   package["state"]["revision"] = "d8f3d48"
-
-                  print("")
-                  print("===== LNPopupController AFTER =====")
-                  print("Version:", package["state"]["version"])
-                  print("Revision:", package["state"]["revision"])
 
           if not found:
               print("ERROR: LNPopupController was not found.")
@@ -70,13 +64,9 @@ jobs:
           with path.open("w") as f:
               json.dump(data, f, indent=2)
               f.write("\n")
-          PY
 
-      - name: Clear build caches
-        run: |
-          rm -rf ~/Library/Developer/Xcode/DerivedData
-          rm -rf ~/Library/Caches/org.swift.swiftpm
-          rm -rf SourcePackages
+          print("LNPopupController pinned to 4.5.8")
+          PY
 
       - name: Resolve Swift packages
         working-directory: FreeTube
@@ -85,74 +75,70 @@ jobs:
             -project FreeTube.xcodeproj \
             -scheme FreeTube \
             -resolvePackageDependencies \
-            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages" \
-            -scmProvider system
+            -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages"
 
-      - name: Show final package versions
+      - name: Show resolved package versions
         run: |
-          echo "===== FINAL PACKAGE RESOLUTION ====="
+          echo "===== RESOLVED PACKAGES ====="
 
           python3 <<'PY'
           import json
+          from pathlib import Path
 
-          path = (
+          path = Path(
               "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
               "xcshareddata/swiftpm/Package.resolved"
           )
 
-          with open(path, "r") as f:
+          with path.open() as f:
               data = json.load(f)
-
-          important = {
-              "lnpopupui",
-              "lnpopupcontroller",
-              "lnsystemmarqueelabel",
-              "youtubedl-ios"
-          }
 
           for package in data.get("pins", []):
-              identity = package.get("identity", "").lower()
+              identity = package.get("identity", "unknown")
+              state = package.get("state", {})
 
-              if identity in important:
-                  state = package.get("state", {})
+              version = state.get("version")
+              branch = state.get("branch")
+              revision = state.get("revision")
 
-                  print("")
-                  print(identity)
-                  print("  version :", state.get("version"))
-                  print("  revision:", state.get("revision"))
+              if version:
+                  print(f"{identity}: {version}")
+              elif branch:
+                  print(f"{identity}: {branch} ({revision})")
+              else:
+                  print(f"{identity}: ({revision})")
           PY
 
-      - name: Verify LNPopupController
+      - name: Verify LNPopupController version
         run: |
           python3 <<'PY'
           import json
+          from pathlib import Path
 
-          path = (
+          path = Path(
               "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
               "xcshareddata/swiftpm/Package.resolved"
           )
 
-          with open(path, "r") as f:
+          with path.open() as f:
               data = json.load(f)
-
-          found = False
 
           for package in data.get("pins", []):
               if package.get("identity", "").lower() == "lnpopupcontroller":
-                  found = True
-                  version = package["state"].get("version")
+                  version = package.get("state", {}).get("version")
+                  revision = package.get("state", {}).get("revision")
 
-                  print("LNPopupController:", version)
+                  print(f"LNPopupController version: {version}")
+                  print(f"LNPopupController revision: {revision}")
 
                   if version != "4.5.8":
                       print("ERROR: LNPopupController is not 4.5.8")
                       raise SystemExit(1)
 
-          if not found:
-              print("ERROR: LNPopupController was not found.")
-              raise SystemExit(1)
+                  raise SystemExit(0)
 
-          print("LNPopupController 4.5.8 confirmed.")
+          print("ERROR: LNPopupController not found")
+          raise SystemExit(1)
           PY
 
       - name: Build unsigned app
@@ -176,50 +162,93 @@ jobs:
           BUILD_EXIT=${PIPESTATUS[0]}
 
           echo ""
-          echo "===== BUILD ERRORS ====="
-          grep -E "error:|warning:|RootView.swift" \
+          echo "========================================"
+          echo "        BUILD ERRORS"
+          echo "========================================"
+
+          grep -E "error:" \
             "$GITHUB_WORKSPACE/build.log" | tail -100 || true
 
           echo ""
-          echo "===== BUILD EXIT CODE ====="
+          echo "========================================"
+          echo "        ROOTVIEW ERRORS"
+          echo "========================================"
+
+          grep -n -B 5 -A 10 \
+            "RootView.swift:" \
+            "$GITHUB_WORKSPACE/build.log" | tail -150 || true
+
+          echo ""
+          echo "========================================"
+          echo "        SWIFT COMPILER ERRORS"
+          echo "========================================"
+
+          grep -n -B 3 -A 8 \
+            "SwiftCompile" \
+            "$GITHUB_WORKSPACE/build.log" | tail -150 || true
+
+          echo ""
+          echo "========================================"
+          echo "        BUILD EXIT CODE"
+          echo "========================================"
+
           echo "$BUILD_EXIT"
 
           exit "$BUILD_EXIT"
 
-      - name: Verify FreeTube.app
+      - name: Verify built app
         run: |
-          APP_PATH="build/Build/Products/Release-iphoneos/FreeTube.app"
+          APP_PATH="$GITHUB_WORKSPACE/build/Build/Products/Release-iphoneos/FreeTube.app"
+
+          echo "Checking for:"
+          echo "$APP_PATH"
 
           if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: FreeTube.app was not built."
+            echo "ERROR: FreeTube.app was not created."
             exit 1
           fi
 
-          echo "===== BUILD SUCCESSFUL ====="
-          du -sh "$APP_PATH"
+          echo ""
+          echo "FreeTube.app successfully created."
 
           echo ""
-          echo "===== FRAMEWORKS ====="
-          find "$APP_PATH/Frameworks" -maxdepth 1 -type d -print || true
+          echo "App contents:"
+          ls -la "$APP_PATH"
 
       - name: Create IPA
         run: |
-          rm -rf Payload
-          mkdir -p Payload
+          rm -rf "$GITHUB_WORKSPACE/Payload"
+          mkdir -p "$GITHUB_WORKSPACE/Payload"
 
           cp -R \
-            "build/Build/Products/Release-iphoneos/FreeTube.app" \
-            "Payload/FreeTube.app"
+            "$GITHUB_WORKSPACE/build/Build/Products/Release-iphoneos/FreeTube.app" \
+            "$GITHUB_WORKSPACE/Payload/FreeTube.app"
 
-          zip -qry FreeTube-iOS27.ipa Payload
+          cd "$GITHUB_WORKSPACE"
 
-          echo ""
-          echo "===== IPA CREATED ====="
-          ls -lh FreeTube-iOS27.ipa
+          zip -r FreeTube.ipa Payload
+
+      - name: Verify IPA
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/FreeTube.ipa" ]; then
+            echo "ERROR: FreeTube.ipa was not created."
+            exit 1
+          fi
+
+          echo "IPA created successfully:"
+          ls -lh "$GITHUB_WORKSPACE/FreeTube.ipa"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: FreeTube-iOS27-IPA
-          path: FreeTube-iOS27.ipa
+          name: FreeTube-IPA
+          path: FreeTube.ipa
           if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: FreeTube-Build-Log
+          path: build.log
+          if-no-files-found: warn
