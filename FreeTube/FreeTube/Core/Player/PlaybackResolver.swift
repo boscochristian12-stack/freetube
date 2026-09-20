@@ -341,7 +341,7 @@ final class StreamingService {
         }
 
         for candidate in candidates {
-            if await validateDirectURL(candidate.url, userAgent: userAgent) {
+            if await validateDirectURL(url: candidate.url, userAgent: userAgent) {
                 return candidate.url
             }
         }
@@ -364,7 +364,7 @@ final class StreamingService {
 
         for candidate in candidates {
             if let url = candidate.url,
-               await validateDirectURL(url, userAgent: userAgent) {
+               await validateDirectURL(url: url, userAgent: userAgent) {
                 return url
             }
         }
