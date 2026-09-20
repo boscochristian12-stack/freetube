@@ -1,3 +1,4 @@
+```yaml
 name: Build FreeTube iOS 27 IPA
 
 on:
@@ -15,6 +16,13 @@ jobs:
         run: |
           xcodebuild -version
           xcode-select -p
+
+      - name: Find FreeTube popup code
+        run: |
+          echo "===== POPUP CODE ====="
+          grep -R -n --include="*.swift" \
+            -E '\.popup\(|popupBarInheritsBottomBarMetrics|tabBarMinimizeBehavior' \
+            FreeTube || true
 
       - name: Find project
         run: |
@@ -202,3 +210,4 @@ jobs:
           name: FreeTube-iOS27-IPA
           path: FreeTube-iOS27.ipa
           if-no-files-found: error
+```
