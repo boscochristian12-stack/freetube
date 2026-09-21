@@ -328,7 +328,7 @@ nonisolated enum PythonJSBridge {
                 result = builtins.eval_js(stdin_str)
                 result = str(result)
                 # yt-dlp expects the deno process to emit exactly one JSON object.
-                # Fail loudly here if JavaScriptCore produced no JSON, rather than letting
+                # Fail loudly here if the embedded Deno runtime produced no JSON, rather than letting
                 # json.loads() report a misleading JSONDecodeError later.
                 if not result.lstrip().startswith('{'):
                     raise RuntimeError('Embedded Deno EJS runtime returned non-JSON stdout: ' + result[:240])
