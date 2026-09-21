@@ -44,6 +44,7 @@ jobs:
         working-directory: DenoRuntime
         env:
           RUSTFLAGS: "-C panic=abort"
+          V8_FROM_SOURCE: "1"
         run: |
           cargo build --release --target aarch64-apple-ios
 
