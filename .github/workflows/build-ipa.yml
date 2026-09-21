@@ -145,7 +145,7 @@ jobs:
               break
             fi
 
-            MISSING_BUILD_RS="$(grep -oE 'vendor/[^[:space:]'"'"']+/build\\.rs' "$V8_BUILD_LOG" | tail -1 || true)"
+            MISSING_BUILD_RS="$(grep -oE 'vendor/[^[:space:]]+/build[.]rs' "$V8_BUILD_LOG" | tail -1 || true)"
             if [ -z "$MISSING_BUILD_RS" ]; then
               echo "V8 build failed without a missing vendored build.rs path; stopping retries."
               exit "$V8_BUILD_EXIT"
