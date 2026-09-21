@@ -89,12 +89,12 @@ jobs:
           ICU_CALENDAR_DATA_DIR="$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor/icu_calendar_data-v2"
           if [ ! -f "$ICU_CALENDAR_DATA_DIR/build.rs" ]; then
             ICU_CALENDAR_DATA_TGZ="$(mktemp)"
-            curl --fail --location --retry 3 \\
-              "https://crates.io/api/v1/crates/icu_calendar_data/2.0.0/download" \\
+            curl --fail --location --retry 3 \
+              "https://crates.io/api/v1/crates/icu_calendar_data/2.0.0/download" \
               --output "$ICU_CALENDAR_DATA_TGZ"
             mkdir -p "$ICU_CALENDAR_DATA_DIR"
             tar -xzf "$ICU_CALENDAR_DATA_TGZ" -C "$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor"
-            mv "$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor/icu_calendar_data-2.0.0/build.rs" \\
+            mv "$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor/icu_calendar_data-2.0.0/build.rs" \
               "$ICU_CALENDAR_DATA_DIR/build.rs"
             rm -rf "$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor/icu_calendar_data-2.0.0" "$ICU_CALENDAR_DATA_TGZ"
           fi
