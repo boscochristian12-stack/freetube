@@ -19,7 +19,7 @@ struct RootView: View {
     /// `DownloadManager` is itself `@Observable`. Both this view (for the badge) and `DownloadsScreen`
     /// (for the list) read the same source of truth.
     @State private var downloads = DownloadManager.shared
-
+    /// Cached thumbnail for the current video. Kept here for the player presentation and loaded when the current video changes.\n    @State private var thumbnail: UIImage?\n
     enum Tab: Hashable {
         case search, library, link, downloads, settings
     }
