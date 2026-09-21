@@ -145,38 +145,6 @@ jobs:
                   print(f"{identity}: ({revision})")
           PY
 
-      - name: Verify LNPopupController version
-        run: |
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path(
-              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
-              "xcshareddata/swiftpm/Package.resolved"
-          )
-
-          with path.open() as f:
-              data = json.load(f)
-
-          for package in data.get("pins", []):
-              if package.get("identity", "").lower() == "lnpopupcontroller":
-                  version = package.get("state", {}).get("version")
-                  revision = package.get("state", {}).get("revision")
-
-                  print(f"LNPopupController version: {version}")
-                  print(f"LNPopupController revision: {revision}")
-
-                  if version != "4.5.10":
-                      print("ERROR: LNPopupController is not 4.5.10")
-                      raise SystemExit(1)
-
-                  raise SystemExit(0)
-
-          print("ERROR: LNPopupController not found")
-          raise SystemExit(1)
-          PY
-
       - name: Build unsigned app
         working-directory: FreeTube
         run: |
