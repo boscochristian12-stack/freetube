@@ -9,5 +9,7 @@ crate-type = ["staticlib"]
 
 [dependencies]
 deno_core = { version = "0.412.0", default-features = false, features = ["reactor-tokio", "v8"] }
+# Match Deno Core's V8 dependency and enable the published iOS simdutf archive.
+v8 = { package = "deno_v8", version = "0.4.0", default-features = false, features = ["simdutf"] }
 tokio = { version = "1.47.1", features = ["rt", "macros"] }
 serde_json = "1.0.145"
