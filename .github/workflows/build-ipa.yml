@@ -59,12 +59,8 @@ jobs:
           cp include/freetube_deno.h \
             "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/freetube_deno.h"
 
-          V8_LIB="$(find target -name 'librusty_v8.a' -type f -print -quit)"
-          test -n "$V8_LIB"
-          cp "$V8_LIB" "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
 
           file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libfreetube_deno_runtime.a"
-          file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
           ls -lh "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
 
           # iOS device builds of Rusty V8 disable WebAssembly. The generated
@@ -153,7 +149,6 @@ jobs:
           DEST="$GITHUB_WORKSPACE/SourcePackages/checkouts/LNPopupUI/DenoRuntime"
           mkdir -p "$DEST"
           cp FreeTube/DenoRuntime/libfreetube_deno_runtime.a "$DEST/"
-          cp FreeTube/DenoRuntime/librusty_v8.a "$DEST/"
           cp FreeTube/DenoRuntime/libv8_ios_stubs.a "$DEST/"
           cp FreeTube/DenoRuntime/freetube_deno.h "$DEST/"
           ls -lh "$DEST"
@@ -238,7 +233,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            OTHER_LDFLAGS='$(inherited) -force_load $(SRCROOT)/DenoRuntime/libfreetube_deno_runtime.a -force_load $(SRCROOT)/DenoRuntime/librusty_v8.a -force_load $(SRCROOT)/DenoRuntime/libv8_ios_stubs.a -lc++' \
+            OTHER_LDFLAGS='$(inherited) -force_load $(SRCROOT)/DenoRuntime/libfreetube_deno_runtime.a -force_load $(SRCROOT)/DenoRuntime/libv8_ios_stubs.a -lc++' \
             clean build 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
           BUILD_EXIT=${PIPESTATUS[0]}
