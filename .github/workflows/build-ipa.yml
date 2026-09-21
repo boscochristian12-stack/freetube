@@ -47,12 +47,34 @@ jobs:
           V8_FROM_SOURCE: "1"
         run: |
           rustup target add aarch64-apple-ios
-          cargo fetch
+          # cargo fetch can report exit 1 after downloading the full registry set.
+          # Keep the downloaded sources and let cargo build perform final verification.
+          set +e
+          cargo fetch -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
+          FETCH_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ "$FETCH_EXIT" -ne 0 ]; then
+            echo "WARNING: cargo fetch exited with $FETCH_EXIT; continuing with downloaded sources."
+            tail -n 80 "$RUNNER_TEMP/cargo-fetch.log" || true
+          fi
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
-          V8_BINDING_CC="$(find "$HOME/.cargo/registry/src" -path '*/v8-*/src/binding.cc' -print -quit)"
+          V8_ROOT="$(find "$HOME/.cargo/registry/src" -maxdepth 1 -type d -name 'v8-150.4.0' -print -quit)"
+          V8_BINDING_CC="$V8_ROOT/src/binding.cc"
+          ICU_DIR="$V8_ROOT/third_party/icu"
           test -n "$TTY_RS"
-          test -n "$V8_BINDING_CC"
+          test -n "$V8_ROOT"
+          test -f "$V8_BINDING_CC"
           python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
+          ICU_TMP="$RUNNER_TEMP/deno-icu"
+          rm -rf "$ICU_TMP"
+          git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \
+            https://github.com/denoland/icu.git "$ICU_TMP"
+          git -C "$ICU_TMP" sparse-checkout set ios/icudtl.dat
+          mkdir -p "$ICU_DIR/ios"
+          cp "$ICU_TMP/ios/icudtl.dat" "$ICU_DIR/ios/icudtl.dat"
+          test -s "$ICU_DIR/ios/icudtl.dat"
+          file "$ICU_DIR/ios/icudtl.dat"
+          ls -lh "$ICU_DIR/ios/icudtl.dat"
           cargo build --release --target aarch64-apple-ios
 
           mkdir -p "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
