@@ -331,7 +331,7 @@ nonisolated enum PythonJSBridge {
                 # Fail loudly here if JavaScriptCore produced no JSON, rather than letting
                 # json.loads() report a misleading JSONDecodeError later.
                 if not result.lstrip().startswith('{'):
-                    raise RuntimeError('JavaScriptCore EJS runtime returned non-JSON stdout: ' + result[:240])
+                    raise RuntimeError('Embedded Deno EJS runtime returned non-JSON stdout: ' + result[:240])
                 self.returncode = 0
                 if text_mode:
                     return (result, '')
