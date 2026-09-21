@@ -11,7 +11,6 @@
 		AC591D892FB9E2BE009EE538 /* YoutubeDL in Frameworks */ = {isa = PBXBuildFile; productRef = AC591D882FB9E2BE009EE538 /* YoutubeDL */; };
 		AC591DA82FB9E35C009EE538 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = AC591DA72FB9E35C009EE538 /* Kingfisher */; };
 		AC591DAB2FB9E36D009EE538 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = AC591DAA2FB9E36D009EE538 /* KeychainAccess */; };
-		AC591E182FB9F2D7009EE538 /* LNPopupUI in Embed Frameworks */ = {isa = PBXBuildFile; productRef = AC591E142FB9F181009EE538 /* LNPopupUI */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		AC591F022FB9F300009EE538 /* FFmpeg-iOS-Support in Frameworks */ = {isa = PBXBuildFile; productRef = AC591F012FB9F300009EE538 /* FFmpeg-iOS-Support */; };
 		AC5924CE2FBB5F2B009EE538 /* SwimplyPlayIndicator in Frameworks */ = {isa = PBXBuildFile; productRef = AC5924CD2FBB5F2B009EE538 /* SwimplyPlayIndicator */; };
 /* End PBXBuildFile section */
