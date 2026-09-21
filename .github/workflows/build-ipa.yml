@@ -123,7 +123,79 @@ jobs:
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
           test -n "$TTY_RS"
           python3 patch-deno-core-ios.py "$TTY_RS"
-          cargo build --release --target aarch64-apple-ios
+          # rusty_v8 150.4.0's crates.io source archive is missing some
+          # Chromium-vendored Rust build scripts even though the generated GN
+          # graph requires them. We already restore the known ICU scripts above.
+          # If Ninja exposes another missing vendor/*/build.rs, restore that
+          # exact published crate file from crates.io and retry.
+          V8_VENDOR_DIR="$V8_CRATE_DIR/third_party/rust/chromium_crates_io/vendor"
+          V8_BUILD_LOG="$GITHUB_WORKSPACE/v8-cargo-build.log"
+          rm -f "$V8_BUILD_LOG"
+          V8_BUILD_OK=0
+
+          for V8_ATTEMPT in $(seq 1 12); do
+            echo "===== Rusty V8 build attempt $V8_ATTEMPT/12 ====="
+            set +e
+            cargo build --release --target aarch64-apple-ios 2>&1 | tee "$V8_BUILD_LOG"
+            V8_BUILD_EXIT=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$V8_BUILD_EXIT" -eq 0 ]; then
+              V8_BUILD_OK=1
+              break
+            fi
+
+            MISSING_BUILD_RS="$(grep -oE 'vendor/[^[:space:]'"'"']+/build\\.rs' "$V8_BUILD_LOG" | tail -1 || true)"
+            if [ -z "$MISSING_BUILD_RS" ]; then
+              echo "V8 build failed without a missing vendored build.rs path; stopping retries."
+              exit "$V8_BUILD_EXIT"
+            fi
+
+            MISSING_REL="${MISSING_BUILD_RS#*vendor/}"
+            MISSING_CRATE_DIR="$V8_VENDOR_DIR/${MISSING_REL%/build.rs}"
+            MISSING_TOML="$MISSING_CRATE_DIR/Cargo.toml"
+            echo "Ninja reports missing: $MISSING_BUILD_RS"
+            echo "Vendored crate directory: $MISSING_CRATE_DIR"
+
+            if [ ! -f "$MISSING_TOML" ]; then
+              echo "ERROR: vendored Cargo.toml is missing for $MISSING_CRATE_DIR"
+              exit "$V8_BUILD_EXIT"
+            fi
+
+            CRATE_NAME="$(sed -n 's/^name = "\\(.*\\)"$/\\1/p' "$MISSING_TOML" | head -1)"
+            CRATE_VERSION="$(sed -n 's/^version = "\\(.*\\)"$/\\1/p' "$MISSING_TOML" | head -1)"
+            if [ -z "$CRATE_NAME" ] || [ -z "$CRATE_VERSION" ]; then
+              echo "ERROR: could not determine crate name/version from $MISSING_TOML"
+              exit "$V8_BUILD_EXIT"
+            fi
+
+            echo "Restoring published crate: $CRATE_NAME $CRATE_VERSION"
+            CRATE_TGZ="$(mktemp)"
+            CRATE_TMP="$(mktemp -d)"
+            curl --fail --location --retry 3 \
+              "https://crates.io/api/v1/crates/$CRATE_NAME/$CRATE_VERSION/download" \
+              --output "$CRATE_TGZ"
+            tar -xzf "$CRATE_TGZ" -C "$CRATE_TMP"
+
+            PUBLISHED_BUILD_RS="$(find "$CRATE_TMP" -type f -name build.rs -print -quit)"
+            if [ -z "$PUBLISHED_BUILD_RS" ]; then
+              echo "ERROR: crates.io package $CRATE_NAME $CRATE_VERSION has no build.rs"
+              rm -rf "$CRATE_TGZ" "$CRATE_TMP"
+              exit "$V8_BUILD_EXIT"
+            fi
+
+            mkdir -p "$MISSING_CRATE_DIR"
+            cp "$PUBLISHED_BUILD_RS" "$MISSING_CRATE_DIR/build.rs"
+            rm -rf "$CRATE_TGZ" "$CRATE_TMP"
+            test -f "$MISSING_CRATE_DIR/build.rs"
+            echo "Restored: $MISSING_CRATE_DIR/build.rs"
+          done
+
+          if [ "$V8_BUILD_OK" -ne 1 ]; then
+            echo "ERROR: Rusty V8 did not build successfully after 12 attempts."
+            exit 101
+          fi
+
 
           mkdir -p "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
           cp target/aarch64-apple-ios/release/libfreetube_deno_runtime.a \
