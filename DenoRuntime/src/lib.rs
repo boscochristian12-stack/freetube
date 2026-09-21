@@ -5,6 +5,7 @@ use deno_core::{JsRuntime, RuntimeOptions};
 fn evaluate_inner(source: &str) -> Result<String, String> {
     let mut runtime = JsRuntime::new(RuntimeOptions::default());
 
+    let source = source.to_owned();
     let value = runtime
         .execute_script("<freetube-deno-eval>", source)
         .map_err(|e| e.to_string())?;
