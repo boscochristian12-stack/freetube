@@ -147,6 +147,17 @@ jobs:
             -resolvePackageDependencies \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages"
 
+      - name: Stage Deno runtime into LNPopupUI package checkout
+        run: |
+          set -e
+          DEST="$GITHUB_WORKSPACE/SourcePackages/checkouts/LNPopupUI/DenoRuntime"
+          mkdir -p "$DEST"
+          cp FreeTube/DenoRuntime/libfreetube_deno_runtime.a "$DEST/"
+          cp FreeTube/DenoRuntime/librusty_v8.a "$DEST/"
+          cp FreeTube/DenoRuntime/libv8_ios_stubs.a "$DEST/"
+          cp FreeTube/DenoRuntime/freetube_deno.h "$DEST/"
+          ls -lh "$DEST"
+
       - name: Show resolved package versions
         run: |
           echo "===== RESOLVED PACKAGES ====="
@@ -230,7 +241,7 @@ jobs:
             OTHER_LDFLAGS='$(inherited) -force_load $(SRCROOT)/DenoRuntime/libfreetube_deno_runtime.a -force_load $(SRCROOT)/DenoRuntime/librusty_v8.a -force_load $(SRCROOT)/DenoRuntime/libv8_ios_stubs.a -lc++' \
             clean build 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
-          BUILD_EXIT=\${PIPESTATUS[0]}
+          BUILD_EXIT=${PIPESTATUS[0]}
 
           echo ""
           echo "========================================"
