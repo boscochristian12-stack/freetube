@@ -26,18 +26,38 @@ jobs:
         run: |
           rustup target add aarch64-apple-ios
 
-      # Native iOS compatibility patch is required before the first deno_core build.
-      - name: Prepare deno_core for iOS
+      # Native iOS compatibility patches are required before the first deno_core/V8 build.
+      - name: Prepare deno_core and V8 for iOS
         working-directory: DenoRuntime
         run: |
           cargo fetch
+
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
-          V8_BINDING_CC="$(find "$HOME/.cargo/registry/src" -path '*/v8-*/src/binding.cc' -print -quit)"
+          V8_ROOT="$(find "$HOME/.cargo/registry/src" -maxdepth 1 -type d -name 'v8-150.4.0' -print -quit)"
+          V8_BINDING_CC="$V8_ROOT/src/binding.cc"
+          ICU_DIR="$V8_ROOT/third_party/icu"
+
           test -n "$TTY_RS"
-          test -n "$V8_BINDING_CC"
+          test -n "$V8_ROOT"
+          test -f "$V8_BINDING_CC"
+
           echo "Patching $TTY_RS"
           echo "Patching $V8_BINDING_CC"
           python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
+
+          # crates.io intentionally omits the large ICU data blobs from rusty_v8.
+          # The iOS GN build nevertheless requires the trimmed iOS ICU data file.
+          # Restore the exact file expected by the V8 source tree before ninja runs.
+          mkdir -p "$ICU_DIR/ios"
+          if [ ! -s "$ICU_DIR/ios/icudtl.dat" ]; then
+            echo "Restoring iOS ICU data into $ICU_DIR/ios/icudtl.dat"
+            curl --fail --location --retry 3 \
+              https://raw.githubusercontent.com/denoland/icu/rusty_v8/ios/icudtl.dat \
+              --output "$ICU_DIR/ios/icudtl.dat"
+          fi
+          test -s "$ICU_DIR/ios/icudtl.dat"
+          ls -lh "$ICU_DIR/ios/icudtl.dat"
+
           grep -n -A16 -B4 'Get a pointer to the thread-local errno value' "$TTY_RS"
           grep -n -A20 -B2 'v8::WasmModuleCompilation' "$V8_BINDING_CC"
 
