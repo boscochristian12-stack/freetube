@@ -64,6 +64,15 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
                 .tag(Tab.settings)
             }
+            // Diagnostic: LNPopupController 4.5+ enables iOS 27 UITabBar layout adjustment
+            // automatically. Our iOS 27.2 crash occurs inside that adjustment path
+            // (_frameForHostedAccessoryView / LNPopupMinimizationSupport) when a video is opened.
+            // Disable only that UIKit adjustment while keeping LNPopupUI itself enabled. This
+            // isolates the framework's tab-bar layout path without touching Deno, yt-dlp, or AVPlayer.
+            .background {
+                DisablePopupTabBarAdjustment()
+                    .frame(width: 0, height: 0)
+            }
                 .popup(
             isBarPresented: $player.miniPlayerVisible,
             isPopupOpen: $player.fullScreenPresented
