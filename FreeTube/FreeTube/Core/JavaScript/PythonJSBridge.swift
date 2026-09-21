@@ -3,14 +3,15 @@ import OSLog
 import PythonKit
 import PythonSupport
 
-/// Glue that wires `JavaScriptCore` into the embedded yt-dlp Python runtime so YouTube's
-/// N/SIG challenges (the obfuscated functions in player.js that protect stream URLs) get
-/// solved transparently — same as a desktop install with `deno` available, just running
-/// on JavaScriptCore instead of V8.
+/// Glue that wires the embedded native Deno/V8 runtime into the yt-dlp Python runtime so
+/// YouTube's N/SIG challenges (the obfuscated functions in player.js that protect stream
+/// URLs) get solved transparently. The EJS payload is executed in-process by the native
+/// Deno Core/V8 bridge; no desktop Deno executable and no WebKit evaluator are involved.
 ///
 /// **Four pieces, all installed by `install()`:**
-/// 1. `builtins.eval_js(code) -> str` — Python-callable hook that runs JS via
-///    `JSEvaluator`, wrapping the source so `console.log` output is captured and returned.
+/// 1. `builtins.eval_js(code) -> str` — Python-callable hook that runs JS through the
+///    embedded native Deno/V8 bridge, wrapping the source so `console.log` output is
+///    captured and returned.
 /// 2. **`yt_dlp_ejs` package shim** — three synthetic modules in `sys.modules`
 ///    (`yt_dlp_ejs`, `yt_dlp_ejs.yt`, `yt_dlp_ejs.yt.solver`) that expose `version`,
 ///    `core()`, `lib()` reading from the bundled `core.min.js` / `lib.min.js`. yt-dlp's
@@ -80,7 +81,7 @@ nonisolated enum PythonJSBridge {
 
             let wrapped = wrapForStdoutCapture(code)
             do {
-                let result = try JSEvaluator.evaluate(wrapped)
+                let result = try DenoRuntimeBridge.evaluate(wrapped)
                 return PythonObject(result)
             } catch {
                 let builtins = Python.import("builtins")
