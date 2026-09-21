@@ -44,39 +44,13 @@ jobs:
         working-directory: DenoRuntime
         env:
           RUSTFLAGS: "-C panic=abort"
-          V8_FROM_SOURCE: "1"
         run: |
-          rustup target add aarch64-apple-ios
-          # cargo fetch can report exit 1 after downloading the full registry set.
-          # Keep the downloaded sources and let cargo build perform final verification.
-          set +e
-          # Fetch only dependencies relevant to iOS so unrelated Windows/Linux
-          # target crates are not downloaded just to build the experimental IPA.
-          cargo fetch --target aarch64-apple-ios -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
-          FETCH_EXIT=${PIPESTATUS[0]}
           set -e
-          if [ "$FETCH_EXIT" -ne 0 ]; then
-            echo "WARNING: target-specific cargo fetch exited with $FETCH_EXIT; continuing with downloaded sources."
-            tail -n 80 "$RUNNER_TEMP/cargo-fetch.log" || true
-          fi
+          rustup target add aarch64-apple-ios
+          cargo fetch --target aarch64-apple-ios
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
-          V8_ROOT="$(find "$HOME/.cargo/registry/src" -type d -path '*/v8-150.4.0' -print -quit)"
-          V8_BINDING_CC="$V8_ROOT/src/binding.cc"
-          ICU_DIR="$V8_ROOT/third_party/icu"
           test -n "$TTY_RS"
-          test -n "$V8_ROOT"
-          test -f "$V8_BINDING_CC"
-          python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
-          ICU_TMP="$RUNNER_TEMP/deno-icu"
-          rm -rf "$ICU_TMP"
-          git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \
-            https://github.com/denoland/icu.git "$ICU_TMP"
-          git -C "$ICU_TMP" sparse-checkout set --no-cone ios/icudtl.dat
-          mkdir -p "$ICU_DIR/ios"
-          cp "$ICU_TMP/ios/icudtl.dat" "$ICU_DIR/ios/icudtl.dat"
-          test -s "$ICU_DIR/ios/icudtl.dat"
-          file "$ICU_DIR/ios/icudtl.dat"
-          ls -lh "$ICU_DIR/ios/icudtl.dat"
+          python3 patch-deno-core-ios.py "$TTY_RS"
           cargo build --release --target aarch64-apple-ios
 
           mkdir -p "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
@@ -87,9 +61,7 @@ jobs:
 
           V8_LIB="$(find target -name 'librusty_v8.a' -type f -print -quit)"
           test -n "$V8_LIB"
-          echo "Using Rusty V8 archive: $V8_LIB"
-          cp "$V8_LIB" \
-            "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
+          cp "$V8_LIB" "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
 
           file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libfreetube_deno_runtime.a"
           file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
