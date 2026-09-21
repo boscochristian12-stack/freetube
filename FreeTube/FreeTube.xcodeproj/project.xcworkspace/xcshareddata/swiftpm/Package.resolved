@@ -38,33 +38,6 @@
       }
     },
     {
-      "identity": "lnpopupcontroller",
-      "kind": "remoteSourceControl",
-      "location": "https://github.com/LeoNatan/LNPopupController.git",
-      "state": {
-        "version": "4.5.10",
-        "revision": "47bc6662473cb957133753edab27d12b62722f2d"
-      }
-    },
-    {
-      "identity": "lnpopupui",
-      "kind": "remoteSourceControl",
-      "location": "https://github.com/LeoNatan/LNPopupUI.git",
-      "state": {
-        "revision": "1efe75905087c98a31f56fa2ae835a0e561afb49",
-        "version": "4.0.3"
-      }
-    },
-    {
-      "identity": "lnswiftuiutils",
-      "kind": "remoteSourceControl",
-      "location": "https://github.com/LeoNatan/LNSwiftUIUtils.git",
-      "state": {
-        "revision": "181a95b992f84d99a14c562c86e8ebef3cbcdca9",
-        "version": "1.1.5"
-      }
-    },
-    {
       "identity": "python-ios",
       "kind": "remoteSourceControl",
       "location": "https://github.com/kewlbear/Python-iOS.git",
