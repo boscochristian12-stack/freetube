@@ -31,11 +31,14 @@ jobs:
         run: |
           cargo fetch
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
+          V8_BINDING_CC="$(find "$HOME/.cargo/registry/src" -path '*/v8-*/src/binding.cc' -print -quit)"
           test -n "$TTY_RS"
+          test -n "$V8_BINDING_CC"
           echo "Patching $TTY_RS"
-          python3 patch-deno-core-ios.py "$TTY_RS"
+          echo "Patching $V8_BINDING_CC"
+          python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
           grep -n -A16 -B4 'Get a pointer to the thread-local errno value' "$TTY_RS"
-          grep -n -A4 -B2 'pub(crate) enum TtyReactor' "$TTY_RS"
+          grep -n -A20 -B2 'v8::WasmModuleCompilation' "$V8_BINDING_CC"
 
       - name: Build embedded Deno runtime for iOS
         working-directory: DenoRuntime
