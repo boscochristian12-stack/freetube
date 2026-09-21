@@ -9,11 +9,11 @@ path = Path(sys.argv[1])
 text = path.read_text()
 
 old = '''  /// Get a pointer to the thread-local errno value.
-    #[cfg(target_os = "macos")]
-    fn errno_location() -> *mut c_int {'''
+  #[cfg(target_os = "macos")]
+  fn errno_location() -> *mut c_int {'''
 new = '''  /// Get a pointer to the thread-local errno value.
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    fn errno_location() -> *mut c_int {'''
+  #[cfg(any(target_os = "macos", target_os = "ios"))]
+  fn errno_location() -> *mut c_int {'''
 if old not in text:
     raise SystemExit("global_termios errno_location block was not found")
 text = text.replace(old, new, 1)
