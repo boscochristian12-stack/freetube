@@ -40,22 +40,27 @@ jobs:
           path = Path(sys.argv[1])
           text = path.read_text()
 
-          old = '#[cfg(target_os = "macos")]'
-          new = '#[cfg(any(target_os = "macos", target_os = "ios"))]'
+          old = '''  /// Get a pointer to the thread-local errno value.
+    #[cfg(target_os = "macos")]
+    fn errno_location() -> *mut c_int {'''
+          new = '''  /// Get a pointer to the thread-local errno value.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    fn errno_location() -> *mut c_int {'''
           if old not in text:
-              raise SystemExit("expected macOS errno_location cfg was not found")
+              raise SystemExit("expected global_termios errno_location block was not found")
           text = text.replace(old, new, 1)
 
           old = '#[cfg(not(any(target_os = "macos", target_os = "linux")))]'
           new = '#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]'
           if old not in text:
-              raise SystemExit("expected fallback errno_location cfg was not found")
+              raise SystemExit("expected errno_location fallback cfg was not found")
           text = text.replace(old, new, 1)
 
           path.write_text(text)
           PY
 
-          grep -n -A12 -B4 'fn errno_location' "$TTY_RS"
+          grep -n -A16 -B4 'Get a pointer to the thread-local errno value' "$TTY_RS"
+          grep -n -A4 -B2 'pub(crate) enum TtyReactor' "$TTY_RS"
 
       - name: Build embedded Deno runtime for iOS
         working-directory: DenoRuntime
