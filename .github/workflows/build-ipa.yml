@@ -48,8 +48,10 @@ jobs:
           rustup target add aarch64-apple-ios
           cargo fetch
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
+          V8_BINDING_CC="$(find "$HOME/.cargo/registry/src" -path '*/v8-*/src/binding.cc' -print -quit)"
           test -n "$TTY_RS"
-          python3 patch-deno-core-ios.py "$TTY_RS"
+          test -n "$V8_BINDING_CC"
+          python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
           cargo build --release --target aarch64-apple-ios
 
           mkdir -p "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
