@@ -61,12 +61,12 @@ jobs:
           rustup target add aarch64-apple-ios
           cargo fetch --target aarch64-apple-ios
 
-          # The crates.io v8-150.4.0 source package intentionally excludes the
-          # generated iOS ICU data blob, but the source GN build still requires
-          # it. Restore the exact ICU revision pinned by rusty_v8 150.4.0 before
+          # The crates.io v8-150.4.0 source package is missing the iOS ICU data blob,
+          # but its GN build requires it. Restore the exact ICU revision pinned by
+          # rusty_v8 150.4.0 before
           # invoking Cargo's V8 build. This keeps the CppGC/source build enabled
           # instead of falling back to a prebuilt V8 archive with different GN args.
-          V8_CRATE_DIR="$(find "$HOME/.cargo/registry/src" -maxdepth 2 -type d -path '*/deno_v8-0.4.0' -print -quit)"
+          V8_CRATE_DIR="$(find "$HOME/.cargo/registry/src" -maxdepth 2 -type d -path '*/v8-150.4.0' -print -quit)"
           test -n "$V8_CRATE_DIR"
           ICU_DATA="$V8_CRATE_DIR/third_party/icu/ios/icudtl.dat"
           mkdir -p "$(dirname "$ICU_DATA")"
