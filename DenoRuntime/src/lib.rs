@@ -9,21 +9,24 @@ fn evaluate_inner(source: &str) -> Result<String, String> {
         .execute_script("<freetube-deno-eval>", source)
         .map_err(|e| e.to_string())?;
 
-    let scope = &mut runtime.handle_scope();
-    let local = deno_core::v8::Local::new(scope, value);
-    Ok(local.to_rust_string_lossy(scope))
+    let value = {
+        deno_core::scope!(scope, &mut runtime);
+        value.open(scope).to_rust_string_lossy(scope)
+    };
+
+    Ok(value)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn freetube_deno_eval(source: *const c_char) -> *mut c_char {
     if source.is_null() {
-        return CString::new("{\"error\":\"null source\"}").unwrap().into_raw();
+        return CString::new("{"error":"null source"}").unwrap().into_raw();
     }
 
     let source = unsafe { CStr::from_ptr(source) };
     let source = match source.to_str() {
         Ok(value) => value,
-        Err(_) => return CString::new("{\"error\":\"source is not UTF-8\"}").unwrap().into_raw(),
+        Err(_) => return CString::new("{"error":"source is not UTF-8"}").unwrap().into_raw(),
     };
 
     let result = match evaluate_inner(source) {
@@ -32,11 +35,11 @@ pub extern "C" fn freetube_deno_eval(source: *const c_char) -> *mut c_char {
     };
 
     CString::new(result)
-        .unwrap_or_else(|_| CString::new("{\"error\":\"invalid result\"}").unwrap())
+        .unwrap_or_else(|_| CString::new("{"error":"invalid result"}").unwrap())
         .into_raw()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn freetube_deno_free_string(value: *mut c_char) {
     if value.is_null() {
         return;
