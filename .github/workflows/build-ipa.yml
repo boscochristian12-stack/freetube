@@ -45,6 +45,17 @@ jobs:
         working-directory: DenoRuntime
         env:
           RUSTFLAGS: "-C panic=abort"
+          # Build V8 from source with the CppGC 4 GB caged heap disabled.
+          # The crash report shows V8 dying in CagedHeap::ReserveCagedHeap()
+          # on iOS 27 while initializing the embedded Deno runtime.
+          # iOS does not need this desktop-oriented virtual-address reservation
+          # for our EJS workload, and V8 supports disabling it at GN build time.
+          V8_FROM_SOURCE: "1"
+          GN_ARGS: >-
+            v8_enable_sandbox=false
+            v8_enable_pointer_compression=false
+            cppgc_enable_caged_heap=false
+            cppgc_enable_pointer_compression=false
         run: |
           set -e
           rustup target add aarch64-apple-ios
