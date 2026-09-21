@@ -6,6 +6,11 @@ on:
     paths:
       - 'FreeTube/FreeTube/Core/JavaScript/JSEvaluator.swift'
       - 'FreeTube/FreeTube/Core/JavaScript/PythonJSBridge.swift'
+      - 'FreeTube/FreeTube/Core/JavaScript/DenoRuntimeBridge.swift'
+      - 'FreeTube/FreeTube/Core/JavaScript/DenoRuntimeBridge.h'
+      - 'FreeTube/FreeTube.xcodeproj/project.pbxproj'
+      - 'DenoRuntime/**'
+      - '.github/workflows/build-ipa.yml'
 
 jobs:
   build:
@@ -34,6 +39,25 @@ jobs:
           rm -rf ~/Library/org.swift.swiftpm
           rm -rf "$GITHUB_WORKSPACE/SourcePackages"
           rm -rf "$GITHUB_WORKSPACE/build"
+
+      - name: Build embedded Deno runtime for iOS
+        working-directory: DenoRuntime
+        env:
+          RUSTFLAGS: "-C panic=abort"
+        run: |
+          rustup target add aarch64-apple-ios
+          cargo fetch
+          TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
+          test -n "$TTY_RS"
+          python3 patch-deno-core-ios.py "$TTY_RS"
+          cargo build --release --target aarch64-apple-ios
+
+          mkdir -p "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
+          cp target/aarch64-apple-ios/release/libfreetube_deno_runtime.a             "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libfreetube_deno_runtime.a"
+          cp include/freetube_deno.h             "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/freetube_deno.h"
+
+          file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libfreetube_deno_runtime.a"
+          ls -lh "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
 
       - name: Pin LNPopupController to 4.5.10 and LNPopupUI to 4.0.3
         run: |
