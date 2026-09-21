@@ -329,9 +329,6 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lfreetube_deno_runtime",
-					"-force_load",
-					"$(SRCROOT)/DenoRuntime/librusty_v8.a",
 					"-lc++",
 				);
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/FreeTube/Core/JavaScript/DenoRuntimeBridge.h";
@@ -385,9 +382,6 @@
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
-					"-lfreetube_deno_runtime",
-					"-force_load",
-					"$(SRCROOT)/DenoRuntime/librusty_v8.a",
 					"-lc++",
 				);
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/FreeTube/Core/JavaScript/DenoRuntimeBridge.h";
