@@ -70,9 +70,15 @@ jobs:
           test -n "$V8_CRATE_DIR"
           ICU_DATA="$V8_CRATE_DIR/third_party/icu/ios/icudtl.dat"
           mkdir -p "$(dirname "$ICU_DATA")"
+          # Gitiles serves repository files reliably through ?format=TEXT.
+          # Decode the base64 response instead of using the +download endpoint,
+          # which the macOS runner's curl rejected as a malformed host.
+          ICU_DATA_B64="$(mktemp)"
           curl --fail --location --retry 3 \\
-            "https://chromium.googlesource.com/chromium/deps/icu/+download/ee5f27adc28bd3f15b2c293f726d14d2e336cbd5/ios/icudtl.dat" \\
-            --output "$ICU_DATA"
+            "https://chromium.googlesource.com/chromium/deps/icu/+/ee5f27adc28bd3f15b2c293f726d14d2e336cbd5/ios/icudtl.dat?format=TEXT" \\
+            --output "$ICU_DATA_B64"
+          base64 --decode < "$ICU_DATA_B64" > "$ICU_DATA"
+          rm -f "$ICU_DATA_B64"
           test -s "$ICU_DATA"
           echo "Restored exact rusty_v8 150.4.0 iOS ICU data:"
           ls -lh "$ICU_DATA"
