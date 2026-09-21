@@ -94,45 +94,15 @@ jobs:
             "$GITHUB_WORKSPACE/V8WasmIOSStubs.o"
           file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libv8_ios_stubs.a"
 
-      - name: Pin LNPopupController to 4.5.10 and LNPopupUI to 4.0.3
+      - name: Verify LNPopupUI is removed
         run: |
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path(
-              "FreeTube/FreeTube.xcodeproj/project.xcworkspace/"
-              "xcshareddata/swiftpm/Package.resolved"
-          )
-
-          if not path.exists():
-              print("ERROR: Package.resolved not found.")
-              raise SystemExit(1)
-
-          with path.open("r") as f:
-              data = json.load(f)
-
-          found = False
-
-          for package in data.get("pins", []):
-              if package.get("identity", "").lower() == "lnpopupcontroller":
-                  found = True
-                  package["state"]["version"] = "4.5.10"
-                  package["state"]["revision"] = "47bc6662473cb957133753edab27d12b62722f2d"
-              elif package.get("identity", "").lower() == "lnpopupui":
-                  package["state"]["version"] = "4.0.3"
-                  package["state"]["revision"] = "1efe75905087c98a31f56fa2ae835a0e561afb49"
-
-          if not found:
-              print("ERROR: LNPopupController was not found.")
-              raise SystemExit(1)
-
-          with path.open("w") as f:
-              json.dump(data, f, indent=2)
-              f.write("\n")
-
-          print("LNPopupController pinned to 4.5.10 and LNPopupUI pinned to 4.0.3")
-          PY
+          set -e
+          if grep -R -n -E 'LNPopupUI|LNPopupController|lnpopupui|lnpopupcontroller' \\
+            FreeTube/FreeTube.xcodeproj FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; then
+            echo "ERROR: LNPopupUI/LNPopupController references remain in the Xcode project or package resolution."
+            exit 1
+          fi
+          echo "LNPopupUI and LNPopupController references are removed."
 
       - name: Resolve Swift packages
         working-directory: FreeTube
@@ -142,16 +112,6 @@ jobs:
             -scheme FreeTube \
             -resolvePackageDependencies \
             -clonedSourcePackagesDirPath "$GITHUB_WORKSPACE/SourcePackages"
-
-      - name: Stage Deno runtime into LNPopupUI package checkout
-        run: |
-          set -e
-          DEST="$GITHUB_WORKSPACE/SourcePackages/checkouts/LNPopupUI/DenoRuntime"
-          mkdir -p "$DEST"
-          cp FreeTube/DenoRuntime/libfreetube_deno_runtime.a "$DEST/"
-          cp FreeTube/DenoRuntime/libv8_ios_stubs.a "$DEST/"
-          cp FreeTube/DenoRuntime/freetube_deno.h "$DEST/"
-          ls -lh "$DEST"
 
       - name: Show resolved package versions
         run: |
