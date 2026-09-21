@@ -33,7 +33,23 @@ nonisolated enum DenoRuntimeBridge {
             throw Error.runtimeUnavailable
         }
 
-        return result
+        guard let data = result.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw Error.runtimeError(result)
+        }
+
+        guard let ok = object["ok"] as? Bool else {
+            throw Error.runtimeError(result)
+        }
+
+        if ok {
+            guard let stdout = object["stdout"] as? String else {
+                throw Error.runtimeError("Embedded Deno runtime returned no stdout")
+            }
+            return stdout
+        }
+
+        throw Error.runtimeError((object["error"] as? String) ?? "Unknown embedded Deno error")
     }
 
     static func selfTest() throws -> Bool {
