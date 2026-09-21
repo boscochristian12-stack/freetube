@@ -67,6 +67,37 @@ jobs:
           file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/librusty_v8.a"
           ls -lh "$GITHUB_WORKSPACE/FreeTube/DenoRuntime"
 
+          # iOS device builds of Rusty V8 disable WebAssembly. The generated
+          # Rust bindings still expose the WasmModuleCompilation constructor
+          # and destructor, so the final link needs harmless definitions for
+          # those unused symbols. This stub is intentionally limited to the
+          # experimental branch and is not part of the runtime API.
+          cat > "$GITHUB_WORKSPACE/V8WasmIOSStubs.cpp" <<'CPP'
+          namespace v8 {
+          class WasmModuleCompilation {
+          public:
+              WasmModuleCompilation();
+              ~WasmModuleCompilation();
+          };
+
+          WasmModuleCompilation::WasmModuleCompilation() {}
+          WasmModuleCompilation::~WasmModuleCompilation() {}
+          }
+          CPP
+
+          SDK_PATH="$(xcrun --sdk iphoneos --show-sdk-path)"
+          clang++ \
+            -target arm64-apple-ios17.0 \
+            -isysroot "$SDK_PATH" \
+            -fno-rtti \
+            -fno-exceptions \
+            -c "$GITHUB_WORKSPACE/V8WasmIOSStubs.cpp" \
+            -o "$GITHUB_WORKSPACE/V8WasmIOSStubs.o"
+          libtool -static \
+            -o "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libv8_ios_stubs.a" \
+            "$GITHUB_WORKSPACE/V8WasmIOSStubs.o"
+          file "$GITHUB_WORKSPACE/FreeTube/DenoRuntime/libv8_ios_stubs.a"
+
       - name: Pin LNPopupController to 4.5.10 and LNPopupUI to 4.0.3
         run: |
           python3 <<'PY'
@@ -196,6 +227,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            OTHER_LDFLAGS='$(inherited) -lfreetube_deno_runtime -force_load $(SRCROOT)/DenoRuntime/librusty_v8.a -force_load $(SRCROOT)/DenoRuntime/libv8_ios_stubs.a -lc++' \
             clean build 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
           BUILD_EXIT=${PIPESTATUS[0]}
