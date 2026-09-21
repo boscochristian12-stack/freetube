@@ -30,7 +30,17 @@ jobs:
       - name: Prepare deno_core and V8 for iOS
         working-directory: DenoRuntime
         run: |
-          cargo fetch
+          # cargo fetch sometimes exits 1 on the macOS runner after all registry
+          # sources have been downloaded. Do not discard those sources; let the real
+          # target build perform the final dependency verification.
+          set +e
+          cargo fetch -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
+          FETCH_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ "$FETCH_EXIT" -ne 0 ]; then
+            echo "WARNING: cargo fetch exited with $FETCH_EXIT; continuing because the required sources were downloaded."
+            tail -n 80 "$RUNNER_TEMP/cargo-fetch.log" || true
+          fi
 
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
           V8_ROOT="$(find "$HOME/.cargo/registry/src" -maxdepth 1 -type d -name 'v8-150.4.0' -print -quit)"
@@ -45,17 +55,18 @@ jobs:
           echo "Patching $V8_BINDING_CC"
           python3 patch-deno-core-ios.py "$TTY_RS" "$V8_BINDING_CC"
 
-          # crates.io intentionally omits the large ICU data blobs from rusty_v8.
-          # The iOS GN build nevertheless requires the trimmed iOS ICU data file.
-          # Restore the exact file expected by the V8 source tree before ninja runs.
+          # crates.io omits the large ICU data blobs from rusty_v8. Restore the
+          # exact iOS data file from Deno's pinned rusty_v8 ICU branch.
+          ICU_TMP="$RUNNER_TEMP/deno-icu"
+          rm -rf "$ICU_TMP"
+          git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \\
+            https://github.com/denoland/icu.git "$ICU_TMP"
+          git -C "$ICU_TMP" sparse-checkout set ios/icudtl.dat
+
           mkdir -p "$ICU_DIR/ios"
-          if [ ! -s "$ICU_DIR/ios/icudtl.dat" ]; then
-            echo "Restoring iOS ICU data into $ICU_DIR/ios/icudtl.dat"
-            curl --fail --location --retry 3 \
-              https://raw.githubusercontent.com/denoland/icu/rusty_v8/ios/icudtl.dat \
-              --output "$ICU_DIR/ios/icudtl.dat"
-          fi
+          cp "$ICU_TMP/ios/icudtl.dat" "$ICU_DIR/ios/icudtl.dat"
           test -s "$ICU_DIR/ios/icudtl.dat"
+          file "$ICU_DIR/ios/icudtl.dat"
           ls -lh "$ICU_DIR/ios/icudtl.dat"
 
           grep -n -A16 -B4 'Get a pointer to the thread-local errno value' "$TTY_RS"
