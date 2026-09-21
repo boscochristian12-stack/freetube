@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'FreeTube/FreeTube/Core/JavaScript/JSEvaluator.swift'
+      - 'FreeTube/FreeTube/App/RootView.swift'
       - 'FreeTube/FreeTube/Core/JavaScript/PythonJSBridge.swift'
       - 'FreeTube/FreeTube/Core/JavaScript/DenoRuntimeBridge.swift'
       - 'FreeTube/FreeTube/Core/JavaScript/DenoRuntimeBridge.h'
@@ -97,8 +98,7 @@ jobs:
       - name: Verify LNPopupUI is removed
         run: |
           set -e
-          if grep -R -n -E 'LNPopupUI|LNPopupController|lnpopupui|lnpopupcontroller' \\
-            FreeTube/FreeTube.xcodeproj FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; then
+          if grep -R -n -E 'LNPopupUI|LNPopupController|lnpopupui|lnpopupcontroller' FreeTube/FreeTube.xcodeproj FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; then
             echo "ERROR: LNPopupUI/LNPopupController references remain in the Xcode project or package resolution."
             exit 1
           fi
