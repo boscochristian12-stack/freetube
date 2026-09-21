@@ -30,20 +30,19 @@ jobs:
       - name: Prepare deno_core and V8 for iOS
         working-directory: DenoRuntime
         run: |
-          # cargo fetch sometimes exits 1 on the macOS runner after all registry
-          # sources have been downloaded. Do not discard those sources; let the real
-          # target build perform the final dependency verification.
+          # Fetch only the dependencies relevant to the iOS target instead of
+          # downloading unrelated Windows/Linux target packages.
           set +e
-          cargo fetch -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
+          cargo fetch --target aarch64-apple-ios -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
           FETCH_EXIT=${PIPESTATUS[0]}
           set -e
           if [ "$FETCH_EXIT" -ne 0 ]; then
-            echo "WARNING: cargo fetch exited with $FETCH_EXIT; continuing because the required sources were downloaded."
+            echo "WARNING: target-specific cargo fetch exited with $FETCH_EXIT; continuing with downloaded sources."
             tail -n 80 "$RUNNER_TEMP/cargo-fetch.log" || true
           fi
 
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
-          V8_ROOT="$(find "$HOME/.cargo/registry/src" -maxdepth 1 -type d -name 'v8-150.4.0' -print -quit)"
+          V8_ROOT="$(find "$HOME/.cargo/registry/src" -type d -path '*/v8-150.4.0' -print -quit)"
           V8_BINDING_CC="$V8_ROOT/src/binding.cc"
           ICU_DIR="$V8_ROOT/third_party/icu"
 
@@ -59,7 +58,7 @@ jobs:
           # exact iOS data file from Deno's pinned rusty_v8 ICU branch.
           ICU_TMP="$RUNNER_TEMP/deno-icu"
           rm -rf "$ICU_TMP"
-          git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \\
+          git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \
             https://github.com/denoland/icu.git "$ICU_TMP"
           git -C "$ICU_TMP" sparse-checkout set ios/icudtl.dat
 
