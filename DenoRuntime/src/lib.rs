@@ -20,13 +20,13 @@ fn evaluate_inner(source: &str) -> Result<String, String> {
 #[unsafe(no_mangle)]
 pub extern "C" fn freetube_deno_eval(source: *const c_char) -> *mut c_char {
     if source.is_null() {
-        return CString::new("{"error":"null source"}").unwrap().into_raw();
+        return CString::new(r#"{"error":"null source"}"#).unwrap().into_raw();
     }
 
     let source = unsafe { CStr::from_ptr(source) };
     let source = match source.to_str() {
         Ok(value) => value,
-        Err(_) => return CString::new("{"error":"source is not UTF-8"}").unwrap().into_raw(),
+        Err(_) => return CString::new(r#"{"error":"source is not UTF-8"}"#).unwrap().into_raw(),
     };
 
     let result = match evaluate_inner(source) {
@@ -35,7 +35,7 @@ pub extern "C" fn freetube_deno_eval(source: *const c_char) -> *mut c_char {
     };
 
     CString::new(result)
-        .unwrap_or_else(|_| CString::new("{"error":"invalid result"}").unwrap())
+        .unwrap_or_else(|_| CString::new(r#"{"error":"invalid result"}"#).unwrap())
         .into_raw()
 }
 
