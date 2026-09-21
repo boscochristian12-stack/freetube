@@ -51,3 +51,13 @@ jobs:
           file "$LIB"
           xcrun lipo -info "$LIB" || true
           ls -lh "$LIB"
+
+      - name: Upload embedded Deno runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: freetube-deno-runtime-ios
+          path: |
+            DenoRuntime/target/aarch64-apple-ios/release/libfreetube_deno_runtime.a
+            DenoRuntime/include/freetube_deno.h
+            DenoRuntime/Cargo.toml
+          if-no-files-found: error
