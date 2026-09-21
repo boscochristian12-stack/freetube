@@ -71,7 +71,7 @@ jobs:
           rm -rf "$ICU_TMP"
           git clone --depth 1 --filter=blob:none --sparse --branch rusty_v8 \
             https://github.com/denoland/icu.git "$ICU_TMP"
-          git -C "$ICU_TMP" sparse-checkout set ios/icudtl.dat
+          git -C "$ICU_TMP" sparse-checkout set --no-cone ios/icudtl.dat
           mkdir -p "$ICU_DIR/ios"
           cp "$ICU_TMP/ios/icudtl.dat" "$ICU_DIR/ios/icudtl.dat"
           test -s "$ICU_DIR/ios/icudtl.dat"
