@@ -50,15 +50,17 @@ jobs:
           # cargo fetch can report exit 1 after downloading the full registry set.
           # Keep the downloaded sources and let cargo build perform final verification.
           set +e
-          cargo fetch -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
+          # Fetch only dependencies relevant to iOS so unrelated Windows/Linux
+          # target crates are not downloaded just to build the experimental IPA.
+          cargo fetch --target aarch64-apple-ios -vv 2>&1 | tee "$RUNNER_TEMP/cargo-fetch.log"
           FETCH_EXIT=${PIPESTATUS[0]}
           set -e
           if [ "$FETCH_EXIT" -ne 0 ]; then
-            echo "WARNING: cargo fetch exited with $FETCH_EXIT; continuing with downloaded sources."
+            echo "WARNING: target-specific cargo fetch exited with $FETCH_EXIT; continuing with downloaded sources."
             tail -n 80 "$RUNNER_TEMP/cargo-fetch.log" || true
           fi
           TTY_RS="$(find "$HOME/.cargo/registry/src" -path '*/deno_core-0.412.0/uv_compat/tty.rs' -print -quit)"
-          V8_ROOT="$(find "$HOME/.cargo/registry/src" -maxdepth 1 -type d -name 'v8-150.4.0' -print -quit)"
+          V8_ROOT="$(find "$HOME/.cargo/registry/src" -type d -path '*/v8-150.4.0' -print -quit)"
           V8_BINDING_CC="$V8_ROOT/src/binding.cc"
           ICU_DIR="$V8_ROOT/third_party/icu"
           test -n "$TTY_RS"
