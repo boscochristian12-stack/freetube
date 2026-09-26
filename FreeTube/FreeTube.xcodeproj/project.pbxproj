@@ -154,6 +154,7 @@
 				AC591D872FB9E2BE009EE538 /* XCRemoteSwiftPackageReference "YoutubeDL-iOS" */,
 				AC591DA62FB9E35C009EE538 /* XCRemoteSwiftPackageReference "Kingfisher" */,
 				AC591DA92FB9E36D009EE538 /* XCRemoteSwiftPackageReference "keychainaccess" */,
+				AC591E132FB9F181009EE538 /* XCRemoteSwiftPackageReference "LNPopupUI" */,
 				AC591F002FB9F300009EE538 /* XCRemoteSwiftPackageReference "FFmpeg-iOS-Support" */,
 				AC5924CC2FBB5F2B009EE538 /* XCRemoteSwiftPackageReference "SwimplyPlayIndicator" */,
 			);
