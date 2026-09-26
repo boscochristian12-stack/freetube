@@ -39,14 +39,13 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/SourcePackages"
           rm -rf "$GITHUB_WORKSPACE/build"
 
-      - name: Verify LNPopupUI is removed
+      - name: Verify LNPopupUI is present
         run: |
           set -e
-          if grep -R -n -E 'LNPopupUI|LNPopupController|lnpopupui|lnpopupcontroller' FreeTube/FreeTube.xcodeproj FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved; then
-            echo "ERROR: LNPopupUI/LNPopupController references remain in the Xcode project or package resolution."
-            exit 1
-          fi
-          echo "LNPopupUI and LNPopupController references are removed."
+          grep -R -n -E 'LNPopupUI|LNPopupController|lnpopupui|lnpopupcontroller' \
+            FreeTube/FreeTube.xcodeproj \
+            FreeTube/FreeTube.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+          echo "LNPopupUI and LNPopupController references are present."
 
       - name: Resolve Swift packages
         working-directory: FreeTube
