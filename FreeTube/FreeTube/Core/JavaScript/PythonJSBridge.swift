@@ -3,22 +3,21 @@ import OSLog
 import PythonKit
 import PythonSupport
 
-/// Glue that wires the embedded native Deno/V8 runtime into the yt-dlp Python runtime so
-/// YouTube's N/SIG challenges (the obfuscated functions in player.js that protect stream
-/// URLs) get solved transparently. The EJS payload is executed in-process by the native
-/// Deno Core/V8 bridge; no desktop Deno executable and no WebKit evaluator are involved.
+/// Glue that wires `JavaScriptCore` into the embedded yt-dlp Python runtime so YouTube's
+/// N/SIG challenges (the obfuscated functions in player.js that protect stream URLs) get
+/// solved transparently — same as a desktop install with `deno` available, just running
+/// on JavaScriptCore instead of V8.
 ///
 /// **Four pieces, all installed by `install()`:**
-/// 1. `builtins.eval_js(code) -> str` — Python-callable hook that runs JS through the
-///    embedded native Deno/V8 bridge, wrapping the source so `console.log` output is
-///    captured and returned.
+/// 1. `builtins.eval_js(code) -> str` — Python-callable hook that runs JS via
+///    `JSEvaluator`, wrapping the source so `console.log` output is captured and returned.
 /// 2. **`yt_dlp_ejs` package shim** — three synthetic modules in `sys.modules`
 ///    (`yt_dlp_ejs`, `yt_dlp_ejs.yt`, `yt_dlp_ejs.yt.solver`) that expose `version`,
 ///    `core()`, `lib()` reading from the bundled `core.min.js` / `lib.min.js`. yt-dlp's
 ///    `_pypackage_source` finds this via `from yt_dlp.dependencies import yt_dlp_ejs` and
 ///    uses the JS content as its challenge-solver script source.
 /// 3. **`DenoJsRuntime._info` stub** — replaces the real binary-probe with a function that
-///    returns `JsRuntimeInfo(name='deno', path=..., version='2.7.5', version_tuple=(2,7,5),
+///    returns `JsRuntimeInfo(name='deno', path=..., version='2.0.0', version_tuple=(2,0,0),
 ///    supported=True)`. Without this, yt-dlp's `_js_runtimes['deno'].info` would be `None`
 ///    (no deno binary on iOS) and the whole EJS path gets skipped.
 /// 4. **`subprocess.Popen` extension** — the YoutubeDL-iOS package already replaced
@@ -81,7 +80,7 @@ nonisolated enum PythonJSBridge {
 
             let wrapped = wrapForStdoutCapture(code)
             do {
-                let result = try DenoRuntimeBridge.evaluate(wrapped)
+                let result = try JSEvaluator.evaluate(wrapped)
                 return PythonObject(result)
             } catch {
                 let builtins = Python.import("builtins")
@@ -108,16 +107,13 @@ nonisolated enum PythonJSBridge {
         return """
         ;(function() {
             var __ftStdout = [];
-            var __ftConsole = {
+            var console = {
                 log: function() {
                     var parts = Array.prototype.map.call(arguments, function(a) { return String(a); });
                     __ftStdout.push(parts.join(' '));
                 },
                 error: function() {}, warn: function() {}, info: function() {}, debug: function() {}
             };
-            // Capture both lexical console references and globalThis.console references.
-            globalThis.console = __ftConsole;
-            var console = __ftConsole;
         \(userCode)
             return __ftStdout.join('\\n');
         })()
@@ -229,7 +225,7 @@ nonisolated enum PythonJSBridge {
             path = _determine_runtime_path(self._path, 'deno')
             return JsRuntimeInfo(
                 name='deno', path=path,
-                version='2.7.5', version_tuple=(2, 7, 5),
+                version='2.0.0', version_tuple=(2, 0, 0),
                 supported=True,
             )
 
@@ -326,17 +322,11 @@ nonisolated enum PythonJSBridge {
             text_mode = getattr(self, '_ft_text_mode', True)
             try:
                 result = builtins.eval_js(stdin_str)
-                result = str(result)
-                # yt-dlp expects the deno process to emit exactly one JSON object.
-                # Fail loudly here if the embedded Deno runtime produced no JSON, rather than letting
-                # json.loads() report a misleading JSONDecodeError later.
-                if not result.lstrip().startswith('{'):
-                    raise RuntimeError('Embedded Deno EJS runtime returned non-JSON stdout: ' + result[:240])
                 self.returncode = 0
                 if text_mode:
-                    return (result, '')
+                    return (str(result), '')
                 else:
-                    return (result.encode('utf-8'), b'')
+                    return (str(result).encode('utf-8'), b'')
             except Exception as e:
                 self.returncode = 1
                 err_msg = f'freetube-jscore-shim: {e}'
