@@ -1,4 +1,5 @@
 name: Build FreeTube IPA
+# JavaScriptCore runtime build — no embedded Deno/V8
 
 on:
   workflow_dispatch:
