@@ -319,13 +319,11 @@
 				INFOPLIST_FILE = FreeTube/Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/DenoRuntime",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",
 				);
-				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/FreeTube/Core/JavaScript/DenoRuntimeBridge.h";
 				INFOPLIST_KEY_CFBundleDisplayName = FreeTube;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -372,13 +370,11 @@
 				INFOPLIST_FILE = FreeTube/Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/DenoRuntime",
 				);
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lc++",
 				);
-				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/FreeTube/Core/JavaScript/DenoRuntimeBridge.h";
 				INFOPLIST_KEY_CFBundleDisplayName = FreeTube;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
